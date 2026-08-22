@@ -131,36 +131,36 @@ export async function loginUser(
   password?: string,
   role?: UserRole
 ): Promise<{ user: User; token: string }> {
-  try {
-    const data = await apiRequest<{
-      access_token: string;
-      token_type: string;
-      user: {
-        id: string;
-        name: string;
-        email: string;
-        role: UserRole;
-        created_at: string;
-      };
-    }>("/api/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ email, password: password || "password123" }),
-    });
-
-    const user: User = {
-      id: data.user.id,
-      name: data.user.name,
-      email: data.user.email,
-      role: data.user.role,
-    };
-
-    setAuthSession(data.access_token, user);
-    return { user, token: data.access_token };
-  } catch (e) {
+  if (USE_MOCK) {
     const fallbackUser = role === "doctor" ? mockUsers.doctor : mockUsers.patient;
-    setAuthSession("mock-jwt-token-fallback", fallbackUser);
-    return { user: fallbackUser, token: "mock-jwt-token-fallback" };
+    setAuthSession("mock-jwt-token-xyz", fallbackUser);
+    return { user: fallbackUser, token: "mock-jwt-token-xyz" };
   }
+
+  const data = await apiRequest<{
+    access_token: string;
+    token_type: string;
+    user: {
+      id: string;
+      name: string;
+      email: string;
+      role: UserRole;
+      created_at: string;
+    };
+  }>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password: password || "patient123" }),
+  });
+
+  const user: User = {
+    id: data.user.id,
+    name: data.user.name,
+    email: data.user.email,
+    role: data.user.role,
+  };
+
+  setAuthSession(data.access_token, user);
+  return { user, token: data.access_token };
 }
 
 export async function registerUser(
@@ -169,37 +169,7 @@ export async function registerUser(
   password?: string,
   role?: UserRole
 ): Promise<{ user: User; token: string }> {
-  try {
-    const data = await apiRequest<{
-      access_token: string;
-      token_type: string;
-      user: {
-        id: string;
-        name: string;
-        email: string;
-        role: UserRole;
-        created_at: string;
-      };
-    }>("/api/auth/register", {
-      method: "POST",
-      body: JSON.stringify({
-        name,
-        email,
-        password: password || "password123",
-        role: role || "patient",
-      }),
-    });
-
-    const user: User = {
-      id: data.user.id,
-      name: data.user.name,
-      email: data.user.email,
-      role: data.user.role,
-    };
-
-    setAuthSession(data.access_token, user);
-    return { user, token: data.access_token };
-  } catch (e) {
+  if (USE_MOCK) {
     const user: User = {
       id: `user-${Date.now()}`,
       name,
@@ -209,6 +179,36 @@ export async function registerUser(
     setAuthSession("mock-jwt-token-register", user);
     return { user, token: "mock-jwt-token-register" };
   }
+
+  const data = await apiRequest<{
+    access_token: string;
+    token_type: string;
+    user: {
+      id: string;
+      name: string;
+      email: string;
+      role: UserRole;
+      created_at: string;
+    };
+  }>("/api/auth/register", {
+    method: "POST",
+    body: JSON.stringify({
+      name,
+      email,
+      password: password || "password123",
+      role: role || "patient",
+    }),
+  });
+
+  const user: User = {
+    id: data.user.id,
+    name: data.user.name,
+    email: data.user.email,
+    role: data.user.role,
+  };
+
+  setAuthSession(data.access_token, user);
+  return { user, token: data.access_token };
 }
 
 export async function getCurrentUser(): Promise<User> {

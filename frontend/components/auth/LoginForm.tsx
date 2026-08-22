@@ -42,11 +42,7 @@ export function LoginForm() {
         router.push("/patient/dashboard");
       }
     } catch (err: any) {
-      if (role === "doctor") {
-        router.push("/doctor/dashboard");
-      } else {
-        router.push("/patient/dashboard");
-      }
+      setErrorMessage(err.message || "Failed to log in. Please check your credentials.");
     } finally {
       setIsLoading(false);
     }
@@ -70,11 +66,7 @@ export function LoginForm() {
         router.push("/patient/dashboard");
       }
     } catch (err: any) {
-      if (demoRole === "doctor") {
-        router.push("/doctor/dashboard");
-      } else {
-        router.push("/patient/dashboard");
-      }
+      setErrorMessage(err.message || "Demo user login failed. Please ensure the backend is running and seeded.");
     } finally {
       setIsLoading(false);
     }

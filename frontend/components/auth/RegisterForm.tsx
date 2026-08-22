@@ -37,11 +37,7 @@ export function RegisterForm() {
         router.push("/patient/dashboard");
       }
     } catch (err: any) {
-      if (role === "doctor") {
-        router.push("/doctor/dashboard");
-      } else {
-        router.push("/patient/dashboard");
-      }
+      setErrorMessage(err.message || "Registration failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
