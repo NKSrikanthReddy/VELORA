@@ -9,7 +9,8 @@ export interface ButtonProps
     | "outline"
     | "ghost"
     | "danger"
-    | "subtle";
+    | "subtle"
+    | "cyan";
   size?: "sm" | "md" | "lg";
   isLoading?: boolean;
 }
@@ -28,27 +29,29 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     ref
   ) => {
     const baseStyles =
-      "inline-flex items-center justify-center font-medium rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none active:scale-[0.99] cursor-pointer";
+      "inline-flex items-center justify-center font-medium rounded-xl transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98] cursor-pointer";
 
     const variants = {
       primary:
-        "bg-teal-600 text-white hover:bg-teal-700 focus-visible:ring-teal-600 shadow-sm",
+        "bg-[#0F9D94] text-white hover:bg-[#0D8B83] focus-visible:ring-[#0F9D94] shadow-xs hover:shadow-md hover:shadow-[#0F9D94]/15",
       secondary:
-        "bg-slate-800 text-white hover:bg-slate-900 focus-visible:ring-slate-800 shadow-sm",
+        "bg-[#0F172A] text-white hover:bg-slate-800 focus-visible:ring-slate-800 shadow-xs hover:shadow-md",
       outline:
-        "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus-visible:ring-teal-600 shadow-xs",
+        "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 focus-visible:ring-[#0F9D94] shadow-2xs",
       ghost:
         "text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:ring-slate-400",
       danger:
-        "bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-600 shadow-sm",
+        "bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-600 shadow-xs",
       subtle:
-        "bg-teal-50 text-teal-700 hover:bg-teal-100 focus-visible:ring-teal-600",
+        "bg-teal-50 text-[#0F9D94] hover:bg-teal-100/80 focus-visible:ring-[#0F9D94] border border-teal-100",
+      cyan:
+        "bg-cyan-500 text-slate-950 font-semibold hover:bg-cyan-400 focus-visible:ring-cyan-400 shadow-xs",
     };
 
     const sizes = {
       sm: "h-8 px-3 text-xs gap-1.5",
-      md: "h-10 px-4 text-sm gap-2",
-      lg: "h-11 px-6 text-base gap-2.5",
+      md: "h-10 px-4 text-xs sm:text-sm gap-2",
+      lg: "h-11 px-6 text-sm sm:text-base gap-2.5",
     };
 
     return (
