@@ -8,7 +8,6 @@ import {
   Clock,
   AlertCircle,
   X,
-  FileCheck2,
   Sparkles,
   ArrowRight,
 } from "lucide-react";
@@ -165,7 +164,6 @@ export function DocumentUpload() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       validateAndAddFiles(e.target.files);
-      // Reset input value so same files can be re-selected if needed
       e.target.value = "";
     }
   };
@@ -185,7 +183,7 @@ export function DocumentUpload() {
           </div>
           <button
             onClick={() => setErrorBanner(null)}
-            className="text-rose-600 hover:text-rose-900 p-1"
+            className="text-rose-600 hover:text-rose-900 p-1 cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -198,10 +196,10 @@ export function DocumentUpload() {
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={cn(
-          "relative border-2 border-dashed rounded-2xl p-8 sm:p-12 text-center transition-all bg-white flex flex-col items-center justify-center cursor-pointer group",
+          "relative border-2 border-dashed rounded-2xl p-8 sm:p-12 text-center transition-all duration-200 bg-white flex flex-col items-center justify-center cursor-pointer group shadow-xs",
           isDragging
-            ? "border-teal-600 bg-teal-50/50 scale-[1.005]"
-            : "border-slate-300 hover:border-teal-500 hover:bg-slate-50/50"
+            ? "border-[#0F9D94] bg-teal-50/40 scale-[1.005]"
+            : "border-slate-200 hover:border-[#0F9D94]/70 hover:bg-slate-50/50"
         )}
         onClick={() => fileInputRef.current?.click()}
       >
@@ -214,15 +212,15 @@ export function DocumentUpload() {
           className="hidden"
         />
 
-        <div className="w-16 h-16 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 mb-4 group-hover:scale-105 transition-transform shadow-xs">
+        <div className="w-16 h-16 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-[#0F9D94] mb-4 group-hover:scale-105 transition-transform shadow-2xs">
           <UploadCloud className="w-8 h-8" />
         </div>
 
-        <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-1">
+        <h3 className="text-base sm:text-lg font-bold text-[#0F172A] mb-1">
           Drag and drop medical records here
         </h3>
         <p className="text-xs sm:text-sm text-slate-500 max-w-md mb-5 leading-relaxed">
-          Upload multi-page prescriptions, blood reports, diagnostic tests, or hospital discharge summaries. Multiple files supported simultaneously.
+          Upload prescriptions, blood reports, diagnostic imaging reports, or hospital discharge summaries. Multiple files supported.
         </p>
 
         <Button
@@ -232,34 +230,35 @@ export function DocumentUpload() {
             e.stopPropagation();
             fileInputRef.current?.click();
           }}
+          className="shadow-xs"
         >
           Choose Files
         </Button>
 
-        <div className="mt-6 flex items-center gap-3 text-[11px] text-slate-400">
+        <div className="mt-6 flex items-center gap-2.5 text-[11px] text-slate-400">
           <span className="font-medium text-slate-500">Supported Formats:</span>
-          <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-mono">PDF</span>
-          <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-mono">JPG</span>
-          <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-mono">JPEG</span>
-          <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-mono">PNG</span>
+          <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-mono font-medium">PDF</span>
+          <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-mono font-medium">JPG</span>
+          <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-mono font-medium">JPEG</span>
+          <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-mono font-medium">PNG</span>
         </div>
       </div>
 
       {/* Upload Queue Section */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
+      <div className="bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-xs">
+        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-slate-900">
-              Document Processing Queue
+            <h3 className="text-sm font-bold text-[#0F172A]">
+              Document Ingestion Queue
             </h3>
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
               {queue.length} files
             </span>
           </div>
           <Link href="/patient/history">
-            <Button variant="ghost" size="sm" className="text-xs text-teal-700">
+            <Button variant="ghost" size="sm" className="text-xs text-[#0F9D94] hover:text-[#0D8B83] font-semibold">
               <span>View Consolidated History</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
           </Link>
         </div>
@@ -268,16 +267,16 @@ export function DocumentUpload() {
           {queue.map((item) => (
             <div
               key={item.id}
-              className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors"
+              className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors"
             >
               {/* Document Meta */}
-              <div className="flex items-start sm:items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-700 shrink-0">
+              <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-[#0F9D94] shrink-0 shadow-2xs">
                   <FileText className="w-5 h-5" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-xs sm:text-sm text-slate-900 truncate">
+                    <span className="font-semibold text-xs sm:text-sm text-[#0F172A] truncate">
                       {item.name}
                     </span>
                     <span className="text-[11px] text-slate-400 shrink-0">
@@ -289,7 +288,7 @@ export function DocumentUpload() {
                   {(item.status === "uploading" || item.status === "extracting") && (
                     <div className="w-48 max-w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
                       <div
-                        className="bg-teal-600 h-1.5 rounded-full transition-all duration-300"
+                        className="bg-gradient-to-r from-[#0F9D94] to-[#22D3EE] h-1.5 rounded-full transition-all duration-300"
                         style={{ width: `${item.progress}%` }}
                       />
                     </div>
@@ -297,10 +296,10 @@ export function DocumentUpload() {
 
                   {/* Extracted message */}
                   {item.status === "completed" && item.extractedCount && (
-                    <p className="text-[11px] text-teal-700 mt-0.5 flex items-center gap-1 font-medium">
-                      <Sparkles className="w-3 h-3" />
+                    <p className="text-[11px] text-[#0F9D94] mt-0.5 flex items-center gap-1 font-medium">
+                      <Sparkles className="w-3 h-3 text-[#0F9D94]" />
                       <span>
-                        AI extracted {item.extractedCount} medical facts (diagnoses, lab values, dates)
+                        AI verified {item.extractedCount} medical facts (diagnoses, lab values, dates)
                       </span>
                     </p>
                   )}
@@ -312,14 +311,14 @@ export function DocumentUpload() {
                 <div>
                   {item.status === "completed" && (
                     <Badge variant="success" size="sm">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                      <CheckCircle2 className="w-3 h-3 text-[#0F9D94]" />
                       <span>Completed</span>
                     </Badge>
                   )}
                   {item.status === "extracting" && (
-                    <Badge variant="warning" size="sm">
-                      <Clock className="w-3 h-3 text-amber-600 animate-spin" />
-                      <span>AI Extracting Entities...</span>
+                    <Badge variant="cyan" size="sm">
+                      <Clock className="w-3 h-3 text-cyan-700 animate-spin" />
+                      <span>Extracting Entities...</span>
                     </Badge>
                   )}
                   {item.status === "uploading" && (
@@ -337,7 +336,7 @@ export function DocumentUpload() {
 
                 <button
                   onClick={() => removeQueueItem(item.id)}
-                  className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                  className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
                   title="Remove from queue"
                 >
                   <X className="w-4 h-4" />

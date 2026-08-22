@@ -46,25 +46,25 @@ export default function PatientHistoryPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-screen bg-[#F8FAFC] flex">
       {/* Sidebar */}
       <PatientSidebar />
 
       {/* Main Content Area */}
       <div className="flex-1 md:pl-60 lg:pl-64 flex flex-col min-w-0">
         {/* Top Bar */}
-        <header className="bg-white border-b border-slate-200 sticky top-0 z-20 px-4 sm:px-8 py-4">
+        <header className="bg-white border-b border-slate-200/80 sticky top-0 z-20 px-4 sm:px-8 py-4 shadow-2xs">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-extrabold text-[#0F172A] tracking-tight">
               Medical History &amp; Clinical Briefing
             </h1>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 mt-0.5 font-normal">
               Consolidated history for {mockPatient.name} &bull; {mockPatient.age}y, {mockPatient.gender} &bull; 4-Year Timeline
             </p>
           </div>
 
           {/* Navigation Tabs */}
-          <div className="flex items-center gap-1.5 overflow-x-auto mt-4 pt-1 border-t border-slate-100">
+          <div className="flex items-center gap-2 overflow-x-auto mt-4 pt-2 border-t border-slate-100">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -73,9 +73,9 @@ export default function PatientHistoryPage() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
                   className={cn(
-                    "flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer",
+                    "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 cursor-pointer",
                     isActive
-                      ? "bg-teal-600 text-white shadow-xs"
+                      ? "bg-[#0F9D94] text-white shadow-xs"
                       : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                   )}
                 >
@@ -97,15 +97,17 @@ export default function PatientHistoryPage() {
           )}
 
           {activeTab === "timeline" && (
-            <MedicalTimeline
-              events={mockTimelineEvents}
-              onViewEvidence={setSelectedEvidence}
-            />
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-6 sm:p-7 shadow-xs">
+              <MedicalTimeline
+                events={mockTimelineEvents}
+                onViewEvidence={setSelectedEvidence}
+              />
+            </div>
           )}
 
           {activeTab === "diagnoses" && (
             <div className="space-y-4">
-              <h2 className="text-base font-bold text-slate-900">
+              <h2 className="text-base font-bold text-[#0F172A]">
                 Documented Diagnoses
               </h2>
               <DiagnosisList
@@ -117,7 +119,7 @@ export default function PatientHistoryPage() {
 
           {activeTab === "medications" && (
             <div className="space-y-4">
-              <h2 className="text-base font-bold text-slate-900">
+              <h2 className="text-base font-bold text-[#0F172A]">
                 Active &amp; Historical Prescriptions
               </h2>
               <MedicationList
@@ -129,7 +131,7 @@ export default function PatientHistoryPage() {
 
           {activeTab === "labs" && (
             <div className="space-y-4">
-              <h2 className="text-base font-bold text-slate-900">
+              <h2 className="text-base font-bold text-[#0F172A]">
                 Extracted Biomarkers &amp; Lab Panels
               </h2>
               <LabResults
@@ -141,7 +143,7 @@ export default function PatientHistoryPage() {
 
           {activeTab === "documents" && (
             <div className="space-y-4">
-              <h2 className="text-base font-bold text-slate-900">
+              <h2 className="text-base font-bold text-[#0F172A]">
                 All Uploaded Documents
               </h2>
               <DocumentList documents={mockDocuments} />
@@ -150,7 +152,7 @@ export default function PatientHistoryPage() {
 
           {/* Safety Footer */}
           <div className="flex items-center justify-center gap-2 text-xs text-slate-400 py-4">
-            <ShieldCheck className="w-4 h-4 text-teal-600" />
+            <ShieldCheck className="w-4 h-4 text-[#0F9D94]" />
             <span>MedBrief AI organizes records. Clinical decisions must always be made by a qualified healthcare professional.</span>
           </div>
         </main>

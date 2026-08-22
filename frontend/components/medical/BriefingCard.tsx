@@ -23,32 +23,32 @@ export function BriefingCard({
   const borderStyles = {
     default: "border-slate-200/90",
     warning: "border-amber-300/80 bg-amber-50/20",
-    highlight: "border-teal-200 bg-teal-50/20",
+    highlight: "border-teal-200/90 bg-teal-50/20",
   };
 
   return (
     <div
       className={cn(
-        "bg-white rounded-2xl border shadow-xs overflow-hidden transition-all",
+        "bg-white rounded-2xl border shadow-xs overflow-hidden transition-all duration-200",
         borderStyles[variant],
         className
       )}
     >
-      <div className="px-5 py-4 border-b border-slate-100/90 bg-slate-50/60 flex items-center justify-between gap-3">
+      <div className="px-5 sm:px-6 py-4 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           {icon && (
-            <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-teal-700 shadow-2xs">
+            <div className="w-7 h-7 rounded-lg bg-white border border-slate-200/80 flex items-center justify-center text-[#0F9D94] shadow-2xs">
               {icon}
             </div>
           )}
-          <h3 className="font-bold text-sm tracking-tight text-slate-900 uppercase text-[12px] text-slate-700">
+          <h3 className="font-bold tracking-tight text-[#0F172A] uppercase text-xs">
             {title}
           </h3>
           {badge}
         </div>
         {headerAction && <div>{headerAction}</div>}
       </div>
-      <div className="p-5">{children}</div>
+      <div className="p-5 sm:p-6">{children}</div>
     </div>
   );
 }

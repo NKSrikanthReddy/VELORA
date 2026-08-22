@@ -17,31 +17,31 @@ export function ChatMessage({ message, onViewEvidence }: ChatMessageProps) {
   return (
     <div
       className={cn(
-        "flex gap-3 sm:gap-4 p-4 rounded-xl transition-colors",
+        "flex gap-3.5 sm:gap-4 p-5 rounded-2xl transition-all duration-200",
         isDoctor ? "bg-slate-50 border border-slate-200/80" : "bg-white border border-teal-100 shadow-xs"
       )}
     >
       {/* Avatar Icon */}
       <div
         className={cn(
-          "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-semibold",
+          "w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-xs font-semibold shadow-2xs",
           isDoctor
-            ? "bg-slate-800 text-white"
-            : "bg-teal-600 text-white shadow-xs"
+            ? "bg-[#0F172A] text-white"
+            : "bg-[#0F9D94] text-white"
         )}
       >
         {isDoctor ? (
           <Stethoscope className="w-4 h-4" />
         ) : (
-          <Sparkles className="w-4 h-4" />
+          <Sparkles className="w-4 h-4 text-cyan-200" />
         )}
       </div>
 
       {/* Message Body */}
       <div className="flex-1 space-y-2 min-w-0">
         <div className="flex items-center justify-between">
-          <span className="font-bold text-xs text-slate-900">
-            {isDoctor ? "Dr. Anil Kumar (Doctor)" : "MedBrief AI (Record Assistant)"}
+          <span className="font-bold text-xs sm:text-sm text-[#0F172A]">
+            {isDoctor ? "Dr. Anil Kumar (Clinician)" : "MedBrief AI (Grounded Record Engine)"}
           </span>
           <span className="text-[11px] text-slate-400 font-mono">
             {message.createdAt}
@@ -49,13 +49,13 @@ export function ChatMessage({ message, onViewEvidence }: ChatMessageProps) {
         </div>
 
         {/* Text Content */}
-        <div className="text-xs sm:text-sm text-slate-800 whitespace-pre-line leading-relaxed">
+        <div className="text-xs sm:text-sm text-slate-700 whitespace-pre-line leading-relaxed font-normal">
           {message.content}
         </div>
 
         {/* Conflict Warning Banner */}
         {message.isConflict && message.warning && (
-          <div className="p-3 rounded-lg bg-amber-50 border border-amber-300 text-xs text-amber-900 flex items-start gap-2 mt-2">
+          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-950 flex items-start gap-2.5 mt-2">
             <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
             <span>{message.warning}</span>
           </div>
@@ -63,10 +63,10 @@ export function ChatMessage({ message, onViewEvidence }: ChatMessageProps) {
 
         {/* Out of Scope Banner */}
         {message.isOutOfScope && (
-          <div className="p-3 rounded-lg bg-slate-100 border border-slate-300 text-xs text-slate-700 flex items-start gap-2 mt-2">
+          <div className="p-3.5 rounded-xl bg-slate-100 border border-slate-300 text-xs text-slate-700 flex items-start gap-2.5 mt-2">
             <ShieldAlert className="w-4 h-4 text-slate-600 shrink-0 mt-0.5" />
             <span>
-              <strong>Clinical Guardrail:</strong> This system only retrieves and organizes information from uploaded documents. Diagnostic judgments and prescription adjustments must be made by a licensed clinician.
+              <strong className="font-semibold">Clinical Guardrail:</strong> This system only retrieves and organizes information from uploaded documents. Diagnostic judgments and prescription adjustments must be made by a licensed clinician.
             </span>
           </div>
         )}

@@ -8,7 +8,6 @@ import { mockChatAnswers } from "@/data/mockData";
 import {
   Sparkles,
   Send,
-  HelpCircle,
   ShieldCheck,
   RotateCcw,
   Search,
@@ -111,7 +110,7 @@ export function AskMyRecords({ onViewEvidence }: AskMyRecordsProps) {
 
       setMessages((prev) => [...prev, botResponse]);
       setIsThinking(false);
-    }, 500);
+    }, 450);
   };
 
   const handleResetChat = () => {
@@ -127,19 +126,19 @@ export function AskMyRecords({ onViewEvidence }: AskMyRecordsProps) {
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden flex flex-col">
+    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden flex flex-col">
       {/* Header */}
-      <div className="p-5 border-b border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center text-white shadow-xs">
+      <div className="p-5 sm:p-6 border-b border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#0F9D94] to-cyan-500 flex items-center justify-center text-slate-950 shadow-xs">
             <Sparkles className="w-4 h-4" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-bold text-sm text-slate-900">
+              <h3 className="font-bold text-sm sm:text-base text-[#0F172A]">
                 Ask My Records
               </h3>
-              <span className="text-[11px] font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+              <span className="text-[11px] font-semibold text-cyan-900 bg-cyan-50 px-2.5 py-0.5 rounded-full border border-cyan-200/80">
                 Evidence-Grounded Search
               </span>
             </div>
@@ -154,7 +153,7 @@ export function AskMyRecords({ onViewEvidence }: AskMyRecordsProps) {
           variant="ghost"
           size="sm"
           onClick={handleResetChat}
-          className="text-xs text-slate-500 self-end sm:self-auto"
+          className="text-xs text-slate-500 self-end sm:self-auto hover:text-slate-800"
         >
           <RotateCcw className="w-3.5 h-3.5 mr-1" />
           <span>Reset Session</span>
@@ -162,17 +161,17 @@ export function AskMyRecords({ onViewEvidence }: AskMyRecordsProps) {
       </div>
 
       {/* Preset Suggestion Chips */}
-      <div className="p-4 bg-slate-50/40 border-b border-slate-100">
-        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-2">
+      <div className="p-4 sm:p-5 bg-slate-50/40 border-b border-slate-100">
+        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-2.5">
           Suggested Clinical Queries:
         </span>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-2">
           {presetQuestions.map((q, idx) => (
             <button
               key={idx}
               type="button"
               onClick={() => handleAsk(q)}
-              className="text-xs px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-teal-400 hover:bg-teal-50/50 text-slate-700 hover:text-teal-900 transition-colors text-left cursor-pointer"
+              className="text-xs px-3 py-1.5 rounded-full bg-white border border-slate-200/80 hover:border-[#0F9D94]/60 hover:bg-teal-50/40 text-slate-700 hover:text-slate-900 transition-all duration-200 text-left cursor-pointer shadow-2xs"
             >
               {q}
             </button>
@@ -181,7 +180,7 @@ export function AskMyRecords({ onViewEvidence }: AskMyRecordsProps) {
       </div>
 
       {/* Messages Thread */}
-      <div className="p-4 sm:p-6 space-y-4 max-h-[460px] overflow-y-auto bg-slate-50/20">
+      <div className="p-5 sm:p-6 space-y-4 max-h-[460px] overflow-y-auto bg-slate-50/20">
         {messages.map((msg) => (
           <ChatMessage
             key={msg.id}
@@ -191,8 +190,8 @@ export function AskMyRecords({ onViewEvidence }: AskMyRecordsProps) {
         ))}
 
         {isThinking && (
-          <div className="flex items-center gap-2 text-xs text-slate-500 p-3 rounded-lg bg-slate-100 animate-pulse w-fit">
-            <Sparkles className="w-4 h-4 text-teal-600 animate-spin" />
+          <div className="flex items-center gap-2 text-xs text-slate-500 p-3.5 rounded-xl bg-slate-100/90 animate-pulse w-fit border border-slate-200/60">
+            <Sparkles className="w-4 h-4 text-[#0F9D94] animate-spin" />
             <span>Searching 12 medical records and verifying source documents...</span>
           </div>
         )}
@@ -201,29 +200,29 @@ export function AskMyRecords({ onViewEvidence }: AskMyRecordsProps) {
       </div>
 
       {/* Input Box */}
-      <div className="p-4 border-t border-slate-200 bg-white">
+      <div className="p-4 sm:p-5 border-t border-slate-200/80 bg-white">
         <form
           onSubmit={(e) => {
             e.preventDefault();
             handleAsk(inputQuery);
           }}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2.5"
         >
           <div className="relative flex-1">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
             <input
               type="text"
               value={inputQuery}
               onChange={(e) => setInputQuery(e.target.value)}
               placeholder="Ask a question about the patient's records (e.g. What medications has the patient taken?)"
-              className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600 focus:bg-white transition-all"
+              className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0F9D94] focus:bg-white transition-all text-[#0F172A]"
             />
           </div>
           <Button
             type="submit"
             disabled={!inputQuery.trim() || isThinking}
             size="md"
-            className="shrink-0 text-xs"
+            className="shrink-0 text-xs font-semibold px-4 h-10"
           >
             <span>Ask</span>
             <Send className="w-3.5 h-3.5 ml-1" />
@@ -231,8 +230,8 @@ export function AskMyRecords({ onViewEvidence }: AskMyRecordsProps) {
         </form>
 
         <div className="flex items-center justify-between mt-2.5 text-[11px] text-slate-400">
-          <div className="flex items-center gap-1">
-            <ShieldCheck className="w-3.5 h-3.5 text-teal-600" />
+          <div className="flex items-center gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5 text-[#0F9D94]" />
             <span>Answers generated strictly from available record extracts.</span>
           </div>
           <span className="hidden sm:inline">Press Enter to send</span>

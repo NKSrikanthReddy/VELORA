@@ -16,6 +16,7 @@ import {
   Pill,
   Hospital,
   FlaskConical,
+  FileCheck2,
 } from "lucide-react";
 
 interface TimelineEventProps {
@@ -36,9 +37,9 @@ export function TimelineEvent({
     const lower = type.toLowerCase();
     if (lower.includes("blood") || lower.includes("lab")) return FlaskConical;
     if (lower.includes("prescrip")) return Pill;
-    if (lower.includes("hospital") || lower.includes("admission") || lower.includes("discharge"))
-      return Hospital;
-    if (lower.includes("diag")) return Activity;
+    if (lower.includes("discharge")) return FileCheck2;
+    if (lower.includes("hospital") || lower.includes("admission")) return Hospital;
+    if (lower.includes("diag") || lower.includes("consult")) return Activity;
     return FileText;
   };
 
@@ -48,34 +49,34 @@ export function TimelineEvent({
     <div className="relative flex items-start gap-4 sm:gap-6 group">
       {/* Vertical Spine Line */}
       {!isLast && (
-        <div className="absolute left-4 sm:left-5 top-10 bottom-0 w-0.5 bg-slate-200 group-hover:bg-teal-200 transition-colors" />
+        <div className="absolute left-4 sm:left-5 top-10 bottom-0 w-0.5 bg-slate-200 group-hover:bg-[#0F9D94]/30 transition-colors" />
       )}
 
       {/* Event Node Icon */}
       <div
-        className={`relative z-10 w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-xs transition-transform group-hover:scale-105 ${
+        className={`relative z-10 w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-2xs transition-transform group-hover:scale-105 ${
           isDateUnknown
-            ? "bg-amber-50 border-amber-200 text-amber-700"
-            : "bg-white border-slate-200 text-teal-700 group-hover:border-teal-400"
+            ? "bg-amber-50 border-amber-200/90 text-amber-700"
+            : "bg-white border-slate-200/90 text-[#0F9D94] group-hover:border-[#0F9D94]/60"
         }`}
       >
         {isDateUnknown ? (
           <HelpCircle className="w-4 h-4" />
         ) : (
-          <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+          <Icon className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
         )}
       </div>
 
       {/* Event Card Content */}
       <div className="flex-1 pb-8">
-        <div className="bg-white rounded-xl border border-slate-200/90 p-4 sm:p-5 shadow-xs hover:border-slate-300 hover:shadow-sm transition-all space-y-3">
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-xs hover:border-slate-300 hover:shadow-2xs transition-all duration-200 space-y-3">
           {/* Header row */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-bold text-xs sm:text-sm text-slate-900">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <span className="font-bold text-sm sm:text-base text-[#0F172A]">
                 {event.title}
               </span>
-              <span className="bg-slate-100 text-slate-700 text-[11px] font-semibold px-2 py-0.5 rounded border border-slate-200/80">
+              <span className="bg-slate-100 text-slate-700 text-[11px] font-semibold px-2.5 py-0.5 rounded-full border border-slate-200/80">
                 {event.eventType}
               </span>
             </div>
@@ -100,7 +101,7 @@ export function TimelineEvent({
 
             {event.facility && (
               <>
-                <span className="text-slate-300">•</span>
+                <span className="text-slate-300">&bull;</span>
                 <div className="flex items-center gap-1.5 text-slate-500">
                   <Building2 className="w-3.5 h-3.5" />
                   <span>{event.facility}</span>
@@ -110,7 +111,7 @@ export function TimelineEvent({
 
             {event.clinician && (
               <>
-                <span className="text-slate-300">•</span>
+                <span className="text-slate-300">&bull;</span>
                 <div className="flex items-center gap-1.5 text-slate-500">
                   <User className="w-3.5 h-3.5" />
                   <span>{event.clinician}</span>
@@ -120,13 +121,13 @@ export function TimelineEvent({
           </div>
 
           {/* Description */}
-          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal">
             {event.description}
           </p>
 
           {/* Evidence Button */}
           {event.evidence && event.evidence.length > 0 && (
-            <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+            <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between">
               <div className="text-[11px] text-slate-400 truncate max-w-[200px] sm:max-w-none">
                 Source: {event.evidence[0].documentName} (Page {event.evidence[0].page})
               </div>
@@ -135,10 +136,10 @@ export function TimelineEvent({
                 variant="outline"
                 size="sm"
                 onClick={() => onViewEvidence(event.evidence[0])}
-                className="h-7 text-xs px-2.5 text-teal-700 hover:bg-teal-50 border-teal-200"
+                className="h-7 text-xs px-2.5 text-[#0F9D94] hover:bg-teal-50 border-teal-200/80 font-medium"
               >
                 <span>View Evidence</span>
-                <ExternalLink className="w-3 h-3 ml-1 text-teal-600" />
+                <ExternalLink className="w-3 h-3 ml-1 text-[#0F9D94]" />
               </Button>
             </div>
           )}

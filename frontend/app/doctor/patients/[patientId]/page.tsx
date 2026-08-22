@@ -9,7 +9,6 @@ import { MedicalBriefing } from "@/components/medical/MedicalBriefing";
 import { MedicalTimeline } from "@/components/medical/MedicalTimeline";
 import { AskMyRecords } from "@/components/chat/AskMyRecords";
 import { EvidenceModal } from "@/components/evidence/EvidenceModal";
-import { Button } from "@/components/ui/Button";
 import {
   mockPatient,
   mockBriefing,
@@ -22,8 +21,6 @@ import {
   Search,
   ArrowLeft,
   ShieldCheck,
-  Printer,
-  FileDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -45,18 +42,18 @@ export default function DoctorPatientPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-screen bg-[#F8FAFC] flex">
       {/* Sidebar */}
       <DoctorSidebar />
 
       {/* Main Content Area */}
       <div className="flex-1 md:pl-60 lg:pl-64 flex flex-col min-w-0">
         {/* Sticky Clinical Header Bar */}
-        <header className="bg-white border-b border-slate-200 sticky top-0 z-20 px-4 sm:px-8 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-2xs">
+        <header className="bg-white border-b border-slate-200/80 sticky top-0 z-20 px-4 sm:px-8 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-2xs">
           <div className="flex items-center gap-3">
             <Link href="/doctor/dashboard">
               <button
-                className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors cursor-pointer"
                 title="Back to Patients"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -64,14 +61,14 @@ export default function DoctorPatientPage() {
             </Link>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-base font-bold text-slate-900 tracking-tight">
+                <span className="text-base font-extrabold text-[#0F172A] tracking-tight">
                   {mockPatient.name}
                 </span>
                 <span className="text-xs text-slate-400 font-mono">
                   (ID: {mockPatient.id})
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-slate-500 font-normal">
                 Authorized clinical record &bull; Access valid until 30 Aug 2026
               </p>
             </div>
@@ -82,10 +79,10 @@ export default function DoctorPatientPage() {
             <button
               onClick={() => scrollToSection("briefing")}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer",
+                "flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 cursor-pointer",
                 activeSection === "briefing"
-                  ? "bg-teal-600 text-white shadow-xs"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  ? "bg-[#0F9D94] text-white shadow-xs"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200/80"
               )}
             >
               <Sparkles className="w-3.5 h-3.5" />
@@ -95,23 +92,23 @@ export default function DoctorPatientPage() {
             <button
               onClick={() => scrollToSection("timeline")}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer",
+                "flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 cursor-pointer",
                 activeSection === "timeline"
-                  ? "bg-teal-600 text-white shadow-xs"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  ? "bg-[#0F9D94] text-white shadow-xs"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200/80"
               )}
             >
               <Clock className="w-3.5 h-3.5" />
-              <span>Timeline (2022-2026)</span>
+              <span>Timeline (2022–2026)</span>
             </button>
 
             <button
               onClick={() => scrollToSection("chat")}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer",
+                "flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 cursor-pointer",
                 activeSection === "chat"
-                  ? "bg-teal-600 text-white shadow-xs"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  ? "bg-[#0F9D94] text-white shadow-xs"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200/80"
               )}
             >
               <Search className="w-3.5 h-3.5" />
@@ -135,8 +132,8 @@ export default function DoctorPatientPage() {
           <section ref={briefingRef} className="scroll-mt-24 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-6 rounded-full bg-teal-600" />
-                <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+                <div className="w-2 h-6 rounded-full bg-[#0F9D94]" />
+                <h2 className="text-lg sm:text-xl font-extrabold text-[#0F172A] tracking-tight">
                   1. AI Medical Briefing
                 </h2>
               </div>
@@ -155,8 +152,8 @@ export default function DoctorPatientPage() {
           <section ref={timelineRef} className="scroll-mt-24 space-y-4 pt-6 border-t border-slate-200/80">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-6 rounded-full bg-blue-600" />
-                <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+                <div className="w-2 h-6 rounded-full bg-cyan-600" />
+                <h2 className="text-lg sm:text-xl font-extrabold text-[#0F172A] tracking-tight">
                   2. Chronological Medical Timeline
                 </h2>
               </div>
@@ -165,7 +162,7 @@ export default function DoctorPatientPage() {
               </span>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-6 sm:p-7 shadow-xs">
               <MedicalTimeline
                 events={mockTimelineEvents}
                 onViewEvidence={setSelectedEvidence}
@@ -177,13 +174,13 @@ export default function DoctorPatientPage() {
           <section ref={chatRef} className="scroll-mt-24 space-y-4 pt-6 border-t border-slate-200/80">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-6 rounded-full bg-indigo-600" />
-                <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+                <div className="w-2 h-6 rounded-full bg-[#0F172A]" />
+                <h2 className="text-lg sm:text-xl font-extrabold text-[#0F172A] tracking-tight">
                   3. Ask My Records Assistant
                 </h2>
               </div>
               <span className="text-xs text-slate-500 font-medium hidden sm:inline">
-                Evidence-grounded natural language Q&amp;A
+                Evidence-grounded natural language search
               </span>
             </div>
 
@@ -191,8 +188,8 @@ export default function DoctorPatientPage() {
           </section>
 
           {/* Footer Safety Notice */}
-          <div className="flex items-center justify-center gap-2 text-xs text-slate-400 py-6 border-t border-slate-200">
-            <ShieldCheck className="w-4 h-4 text-teal-600" />
+          <div className="flex items-center justify-center gap-2 text-xs text-slate-400 py-6 border-t border-slate-200/80">
+            <ShieldCheck className="w-4 h-4 text-[#0F9D94]" />
             <span>MedBrief AI &bull; Strict Record-Grounded Verification Architecture</span>
           </div>
         </main>

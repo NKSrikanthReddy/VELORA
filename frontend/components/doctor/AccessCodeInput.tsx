@@ -35,13 +35,13 @@ export function AccessCodeInput() {
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-4">
+    <div className="bg-white rounded-2xl border border-slate-200/90 p-6 sm:p-8 shadow-xs space-y-4">
       <div className="space-y-1">
-        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold border border-blue-200">
-          <KeyRound className="w-3.5 h-3.5" />
+        <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-cyan-50 text-cyan-800 text-xs font-semibold border border-cyan-100">
+          <KeyRound className="w-3.5 h-3.5 text-cyan-600" />
           <span>Patient Record Authorization</span>
         </div>
-        <h2 className="text-lg sm:text-xl font-bold text-slate-900">
+        <h2 className="text-lg sm:text-xl font-bold text-[#0F172A] tracking-tight">
           Enter Patient Access Code
         </h2>
         <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
@@ -54,7 +54,7 @@ export function AccessCodeInput() {
           e.preventDefault();
           handleAccess(code);
         }}
-        className="space-y-3"
+        className="space-y-3.5"
       >
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
@@ -63,14 +63,14 @@ export function AccessCodeInput() {
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
               placeholder="e.g. MED-7K29X"
-              className="w-full font-mono uppercase tracking-widest text-base sm:text-lg font-bold px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600 focus:bg-white transition-all text-slate-900 placeholder:text-slate-400 placeholder:font-normal placeholder:tracking-normal placeholder:text-sm"
+              className="w-full font-mono uppercase tracking-widest text-base sm:text-lg font-bold px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0F9D94] focus:bg-white transition-all text-[#0F172A] placeholder:text-slate-400 placeholder:font-normal placeholder:tracking-normal placeholder:text-sm shadow-2xs"
             />
           </div>
 
           <Button
             type="submit"
             isLoading={isLoading}
-            className="sm:w-auto px-6 h-11 text-xs sm:text-sm font-semibold"
+            className="sm:w-auto px-6 h-11 text-xs sm:text-sm font-semibold shadow-xs"
           >
             <span>Access Patient</span>
             <ArrowRight className="w-4 h-4 ml-1" />
@@ -78,7 +78,7 @@ export function AccessCodeInput() {
         </div>
 
         {error && (
-          <div className="flex items-center gap-2 text-xs text-rose-700 bg-rose-50 border border-rose-200 p-3 rounded-lg animate-in fade-in">
+          <div className="flex items-center gap-2 text-xs text-rose-700 bg-rose-50 border border-rose-200 p-3.5 rounded-xl animate-in fade-in">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
@@ -89,12 +89,12 @@ export function AccessCodeInput() {
           <button
             type="button"
             onClick={handleFillDemoCode}
-            className="inline-flex items-center gap-1.5 text-teal-700 hover:text-teal-900 font-medium hover:underline cursor-pointer"
+            className="inline-flex items-center gap-1.5 text-[#0F9D94] hover:text-[#0D8B83] font-semibold hover:underline cursor-pointer"
           >
-            <Sparkles className="w-3.5 h-3.5 text-teal-600" />
-            <span>Auto-fill Demo Code (MED-7K29X: Rahul Sharma)</span>
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Auto-fill Demo Code (MED-7K29X)</span>
           </button>
-          <span className="text-slate-400 text-[11px]">Format: MED-XXXXX</span>
+          <span className="text-slate-400 text-[11px] font-mono">Format: MED-XXXXX</span>
         </div>
       </form>
     </div>

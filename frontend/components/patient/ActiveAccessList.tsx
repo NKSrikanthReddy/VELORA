@@ -29,10 +29,10 @@ export function ActiveAccessList({
   const activeItems = accessList.filter((a) => a.active);
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
-      <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+    <div className="bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-xs">
+      <div className="p-5 sm:p-6 border-b border-slate-100 flex items-center justify-between">
         <div>
-          <h3 className="font-semibold text-sm text-slate-900">
+          <h3 className="font-bold text-sm sm:text-base text-[#0F172A]">
             Active Doctor Authorizations
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
@@ -53,31 +53,31 @@ export function ActiveAccessList({
           {activeItems.map((access) => (
             <div
               key={access.id}
-              className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors"
+              className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors"
             >
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-700 shrink-0">
+              <div className="flex items-start gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-100 text-[#0F9D94] flex items-center justify-center shrink-0 shadow-2xs">
                   <Stethoscope className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-slate-900">
+                    <span className="font-bold text-sm text-[#0F172A]">
                       {access.doctorName}
                     </span>
                     <Badge variant="success" size="sm">
-                      <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                      <ShieldCheck className="w-3 h-3 text-[#0F9D94]" />
                       <span>Access Granted</span>
                     </Badge>
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    {access.hospital || "Specialty Clinic"} • {access.specialty || "General Medicine"}
+                    {access.hospital || "Specialty Clinic"} &bull; {access.specialty || "General Medicine"}
                   </p>
-                  <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-1.5">
+                  <div className="flex items-center gap-2.5 text-[11px] text-slate-400 mt-1.5 flex-wrap">
                     <span>Granted: {access.grantedAt}</span>
-                    <span>•</span>
+                    <span>&bull;</span>
                     <span className="text-amber-700 font-medium">Expires: {access.expiresAt}</span>
-                    <span>•</span>
-                    <span className="font-mono bg-slate-100 px-1.5 py-0.2 rounded text-slate-600">
+                    <span>&bull;</span>
+                    <span className="font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-700 font-medium">
                       Code: {access.accessCode}
                     </span>
                   </div>
@@ -91,7 +91,7 @@ export function ActiveAccessList({
                   onClick={() => setSelectedForRevocation(access)}
                   className="border-rose-200 text-rose-700 hover:bg-rose-50 text-xs"
                 >
-                  <UserX className="w-3.5 h-3.5" />
+                  <UserX className="w-3.5 h-3.5 mr-1" />
                   <span>Revoke</span>
                 </Button>
               </div>

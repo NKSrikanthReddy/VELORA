@@ -9,9 +9,9 @@ import {
   FileText,
   LogOut,
   Stethoscope,
-  ShieldCheck,
   Menu,
   X,
+  UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { mockUsers } from "@/data/mockData";
@@ -35,20 +35,22 @@ export function DoctorSidebar() {
   ];
 
   const sidebarContent = (
-    <div className="flex flex-col h-full bg-slate-900 text-white border-r border-slate-800">
+    <div className="flex flex-col h-full bg-[#0F172A] text-white border-r border-slate-800/80 select-none">
       {/* Brand Header */}
-      <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+      <div className="p-5 border-b border-slate-800/80 flex items-center justify-between">
         <Link
           href="/"
-          className="flex items-center gap-2.5"
+          className="flex items-center gap-2.5 group"
           onClick={() => setIsMobileOpen(false)}
         >
-          <div className="w-8 h-8 rounded-lg bg-teal-500 flex items-center justify-center text-slate-950 font-bold shadow-xs">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#0F9D94] to-cyan-400 flex items-center justify-center text-slate-950 font-bold shadow-xs group-hover:scale-105 transition-transform">
             <FileText className="w-4 h-4" />
           </div>
           <div>
-            <span className="font-bold text-white tracking-tight">MedBrief</span>
-            <span className="text-teal-400 font-bold ml-0.5">MD</span>
+            <span className="font-extrabold text-white tracking-tight text-base">
+              MedBrief
+            </span>
+            <span className="text-cyan-400 font-bold text-base ml-0.5">MD</span>
           </div>
         </Link>
         <button
@@ -60,16 +62,16 @@ export function DoctorSidebar() {
       </div>
 
       {/* Doctor Profile Card */}
-      <div className="p-4 mx-3 my-3 bg-slate-800/80 border border-slate-700/80 rounded-xl">
+      <div className="p-3.5 mx-3.5 my-3.5 bg-slate-800/60 border border-slate-700/60 rounded-xl">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-teal-500/20 text-teal-300 flex items-center justify-center font-bold text-xs border border-teal-500/30">
+          <div className="w-9 h-9 rounded-xl bg-cyan-500/15 text-cyan-300 flex items-center justify-center font-bold text-xs border border-cyan-500/30 shadow-2xs">
             AK
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-xs font-bold text-white truncate">
               {doctor.name}
             </div>
-            <div className="text-[11px] text-teal-400 flex items-center gap-1">
+            <div className="text-[11px] text-cyan-400 flex items-center gap-1 mt-0.5">
               <Stethoscope className="w-3 h-3" />
               <span>{doctor.specialty?.split("&")[0] || "Internal Medicine"}</span>
             </div>
@@ -78,7 +80,7 @@ export function DoctorSidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 space-y-1 py-2">
+      <nav className="flex-1 px-3 space-y-1 py-1">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;
@@ -88,10 +90,10 @@ export function DoctorSidebar() {
               href={item.href}
               onClick={() => setIsMobileOpen(false)}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-colors",
+                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200",
                 isActive
-                  ? "bg-teal-600 text-white shadow-xs"
-                  : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                  ? "bg-[#0F9D94] text-white shadow-xs font-semibold"
+                  : "text-slate-400 hover:bg-slate-800/80 hover:text-white"
               )}
             >
               <Icon className="w-4 h-4 shrink-0" />
@@ -102,19 +104,22 @@ export function DoctorSidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-slate-800 space-y-2">
+      <div className="p-3.5 border-t border-slate-800/80 space-y-2">
         <Link
           href="/patient/dashboard"
-          className="flex items-center justify-between text-xs text-slate-400 hover:text-teal-300 px-2 py-1.5 rounded-md hover:bg-slate-800 transition-colors"
+          className="flex items-center justify-between text-xs text-slate-400 hover:text-cyan-300 px-2.5 py-2 rounded-lg hover:bg-slate-800/70 transition-colors"
         >
-          <span>Switch to Patient View</span>
-          <span className="text-[10px] font-semibold bg-slate-700 px-1.5 py-0.5 rounded text-slate-300">
+          <div className="flex items-center gap-2">
+            <UserCheck className="w-3.5 h-3.5" />
+            <span>Switch to Patient</span>
+          </div>
+          <span className="text-[10px] font-semibold bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700">
             Demo
           </span>
         </Link>
         <Link
           href="/login"
-          className="flex items-center gap-2 text-xs text-rose-400 hover:text-rose-300 px-2 py-1.5 rounded-md hover:bg-rose-950/30 transition-colors"
+          className="flex items-center gap-2 text-xs text-rose-400 hover:text-rose-300 px-2.5 py-1.5 rounded-lg hover:bg-rose-950/20 transition-colors"
         >
           <LogOut className="w-3.5 h-3.5" />
           <span>Sign Out</span>
@@ -126,9 +131,9 @@ export function DoctorSidebar() {
   return (
     <>
       {/* Mobile Bar */}
-      <div className="md:hidden flex items-center justify-between p-4 bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-30">
+      <div className="md:hidden flex items-center justify-between p-4 bg-[#0F172A] text-white border-b border-slate-800 sticky top-0 z-30">
         <Link href="/" className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-md bg-teal-500 flex items-center justify-center text-slate-950">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-[#0F9D94] to-cyan-400 flex items-center justify-center text-slate-950">
             <FileText className="w-4 h-4" />
           </div>
           <span className="font-bold text-sm text-white">MedBrief MD</span>

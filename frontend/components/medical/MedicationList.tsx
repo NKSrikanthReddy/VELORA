@@ -23,29 +23,29 @@ export function MedicationList({
         return (
           <div
             key={med.id}
-            className={`p-4 rounded-xl border transition-all ${
+            className={`p-5 rounded-2xl border transition-all duration-200 ${
               isConflict
-                ? "border-amber-300 bg-amber-50/40 shadow-xs"
-                : "border-slate-200 bg-white hover:border-slate-300"
+                ? "border-amber-300/90 bg-amber-50/30 shadow-xs"
+                : "border-slate-200/90 bg-white hover:border-slate-300 hover:shadow-2xs"
             }`}
           >
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-3.5">
                 <div
-                  className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-2xs ${
                     isConflict
                       ? "bg-amber-100 text-amber-800"
-                      : "bg-teal-50 text-teal-700"
+                      : "bg-teal-50 text-[#0F9D94]"
                   }`}
                 >
                   <Pill className="w-4 h-4" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="font-bold text-sm text-slate-900">
+                    <h4 className="font-bold text-sm text-[#0F172A]">
                       {med.name}
                     </h4>
-                    <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-800 border border-slate-200/80">
+                    <span className="font-mono text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 border border-slate-200/80">
                       {med.dosage}
                     </span>
                     {isConflict ? (
@@ -68,7 +68,7 @@ export function MedicationList({
               </div>
 
               {/* View Source Actions */}
-              <div className="flex items-center gap-1.5 self-end sm:self-start flex-wrap">
+              <div className="flex items-center gap-2 self-end sm:self-start flex-wrap">
                 {med.evidence.map((ev, idx) => (
                   <Button
                     key={ev.id}
@@ -76,7 +76,7 @@ export function MedicationList({
                     variant="outline"
                     size="sm"
                     onClick={() => onViewEvidence(ev)}
-                    className="h-7 text-xs px-2.5 bg-white border-slate-300 hover:bg-slate-50 text-slate-700"
+                    className="h-7 text-xs px-2.5 bg-white border-slate-200 hover:bg-slate-50 text-slate-700 font-medium"
                   >
                     <span>Source {med.evidence.length > 1 ? `#${idx + 1}` : ""}</span>
                     <ExternalLink className="w-3 h-3 ml-1 text-slate-400" />
@@ -87,10 +87,10 @@ export function MedicationList({
 
             {/* Prominent Conflict Alert Box */}
             {isConflict && med.conflictDescription && (
-              <div className="mt-3.5 p-3 rounded-lg bg-amber-100/70 border border-amber-300 text-xs text-amber-900 flex items-start gap-2.5">
+              <div className="mt-4 p-3.5 rounded-xl bg-amber-100/70 border border-amber-300/80 text-xs text-amber-950 flex items-start gap-2.5">
                 <ShieldAlert className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-                <div className="leading-relaxed">
-                  <strong>⚠ Conflicting information found:</strong> {med.conflictDescription}
+                <div className="leading-relaxed font-normal">
+                  <strong className="font-semibold">⚠ Conflicting information found:</strong> {med.conflictDescription}
                 </div>
               </div>
             )}
