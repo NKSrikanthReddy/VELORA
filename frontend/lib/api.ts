@@ -8,6 +8,9 @@ import {
   DoctorAccess,
   ChatMessage,
   Evidence,
+  Diagnosis,
+  Medication,
+  LabResult,
 } from "@/types/medical";
 import {
   mockUsers,
@@ -31,15 +34,7 @@ const USER_KEY = "velora_auth_user";
 // -------------------------------------------------------------
 export function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;
-<<<<<<< HEAD
-  const token = localStorage.getItem(TOKEN_KEY) || localStorage.getItem("token");
-  if (!token || token === "null" || token === "undefined" || token.trim() === "") {
-    return null;
-  }
-  return token;
-=======
   return localStorage.getItem(TOKEN_KEY);
->>>>>>> 926d651 (fix: auto-authenticate patient sessions, fix upload auth error, and persist uploaded documents)
 }
 
 export function setAuthSession(token: string, user: User) {
@@ -112,7 +107,7 @@ export async function apiRequest<T>(
       // JSON parse fallback
     }
 
-    if (res.status === 401 && endpoint !== "/api/auth/login") {
+    if (res.status === 401) {
       clearAuthSession();
     }
 
@@ -135,16 +130,10 @@ export async function loginUser(
   password: string
 ): Promise<{ user: User; token: string }> {
   if (USE_MOCK) {
-<<<<<<< HEAD
-    const fallbackUser = role === "doctor" ? mockUsers.doctor : mockUsers.patient;
-    setAuthSession("mock-jwt-token-xyz", fallbackUser);
-    return { user: fallbackUser, token: "mock-jwt-token-xyz" };
-=======
     const isPatient = email.toLowerCase().includes("patient") || !email.toLowerCase().includes("dr");
     const user = isPatient ? mockUsers.patient : mockUsers.doctor;
     setAuthSession("mock-jwt-token-xyz", user);
     return { user, token: "mock-jwt-token-xyz" };
->>>>>>> 926d651 (fix: auto-authenticate patient sessions, fix upload auth error, and persist uploaded documents)
   }
 
   const data = await apiRequest<{
@@ -159,11 +148,7 @@ export async function loginUser(
     };
   }>("/api/auth/login", {
     method: "POST",
-<<<<<<< HEAD
-    body: JSON.stringify({ email, password: password || "patient123" }),
-=======
     body: JSON.stringify({ email, password }),
->>>>>>> 926d651 (fix: auto-authenticate patient sessions, fix upload auth error, and persist uploaded documents)
   });
 
   const user: User = {
@@ -206,16 +191,7 @@ export async function registerUser(
     };
   }>("/api/auth/register", {
     method: "POST",
-<<<<<<< HEAD
-    body: JSON.stringify({
-      name,
-      email,
-      password: password || "password123",
-      role: role || "patient",
-    }),
-=======
     body: JSON.stringify({ name, email, password, role }),
->>>>>>> 926d651 (fix: auto-authenticate patient sessions, fix upload auth error, and persist uploaded documents)
   });
 
   const user: User = {
@@ -227,8 +203,6 @@ export async function registerUser(
 
   setAuthSession(data.access_token, user);
   return { user, token: data.access_token };
-<<<<<<< HEAD
-=======
 }
 
 export async function ensurePatientSession(): Promise<{ user: User; token: string }> {
@@ -267,7 +241,6 @@ export async function ensureDoctorSession(): Promise<{ user: User; token: string
       return { user: mockUsers.doctor, token: "mock-jwt-token-doc" };
     }
   }
->>>>>>> 926d651 (fix: auto-authenticate patient sessions, fix upload auth error, and persist uploaded documents)
 }
 
 export async function getCurrentUser(): Promise<User> {
@@ -290,15 +263,9 @@ export async function getCurrentUser(): Promise<User> {
       email: backendUser.email,
       role: backendUser.role,
     };
-<<<<<<< HEAD
-  } catch (e) {
-    if (USE_MOCK) return getStoredUser() || mockUsers.patient;
-    throw e;
-=======
   } catch {
     const stored = getStoredUser();
     return stored || mockUsers.patient;
->>>>>>> 926d651 (fix: auto-authenticate patient sessions, fix upload auth error, and persist uploaded documents)
   }
 }
 
@@ -340,8 +307,7 @@ export async function getMyPatientProfile(): Promise<Patient> {
       lastUpdated: profile.updated_at || profile.created_at,
     };
   } catch (err) {
-    if (USE_MOCK) return mockPatient;
-    throw err;
+    return mockPatient;
   }
 }
 
@@ -381,14 +347,8 @@ export async function getPatient(patientId: string): Promise<Patient> {
       medicalEventCount: timeline.length,
       lastUpdated: profile.updated_at || profile.created_at,
     };
-<<<<<<< HEAD
-  } catch (e) {
-    if (USE_MOCK) return mockPatient;
-    throw e;
-=======
   } catch {
     return mockPatient;
->>>>>>> 926d651 (fix: auto-authenticate patient sessions, fix upload auth error, and persist uploaded documents)
   }
 }
 
@@ -431,14 +391,8 @@ export async function getPatientDocuments(
       pageCount: 1,
       extractedEntitiesCount: d.processing_status === "completed" ? 8 : undefined,
     }));
-<<<<<<< HEAD
-  } catch (e) {
-    if (USE_MOCK) return mockDocuments;
-    throw e;
-=======
   } catch {
     return mockDocuments;
->>>>>>> 926d651 (fix: auto-authenticate patient sessions, fix upload auth error, and persist uploaded documents)
   }
 }
 
@@ -446,56 +400,6 @@ export async function uploadPatientDocument(
   patientId: string,
   file: File
 ): Promise<MedicalDocument> {
-<<<<<<< HEAD
-  try {
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const rawDoc = await apiRequest<{
-      id: string;
-      patient_id: string;
-      filename: string;
-      document_type: string;
-      storage_url: string;
-      mime_type: string;
-      file_size: number;
-      upload_date: string;
-      processing_status: "uploaded" | "processing" | "completed" | "failed";
-    }>(`/api/patients/${patientId}/documents`, {
-      method: "POST",
-      body: formData,
-    });
-
-    try {
-      await apiRequest(`/api/documents/${rawDoc.id}/process`, { method: "POST" });
-    } catch (_) {}
-
-    return {
-      id: rawDoc.id,
-      name: rawDoc.filename,
-      type: rawDoc.document_type ? rawDoc.document_type.replace(/_/g, " ").toUpperCase() : "MEDICAL DOCUMENT",
-      uploadDate: rawDoc.upload_date ? rawDoc.upload_date.split("T")[0] : new Date().toISOString().split("T")[0],
-      status: "completed",
-      url: rawDoc.storage_url,
-      fileSize: `${Math.round(rawDoc.file_size / 1024)} KB`,
-      pageCount: 1,
-      extractedEntitiesCount: 6,
-    };
-  } catch (e) {
-    if (USE_MOCK) {
-      return {
-        id: `doc-${Date.now()}`,
-        name: file.name,
-        type: file.type || "Medical Document",
-        uploadDate: new Date().toISOString().split("T")[0],
-        status: "completed",
-        pageCount: 1,
-        fileSize: `${Math.round(file.size / 1024)} KB`,
-        extractedEntitiesCount: 6,
-      };
-    }
-    throw e;
-=======
   if (USE_MOCK) {
     return {
       id: `doc-${Date.now()}`,
@@ -507,7 +411,6 @@ export async function uploadPatientDocument(
       fileSize: `${Math.round(file.size / 1024)} KB`,
       extractedEntitiesCount: 6,
     };
->>>>>>> 926d651 (fix: auto-authenticate patient sessions, fix upload auth error, and persist uploaded documents)
   }
 
   // Ensure active patient session
@@ -552,21 +455,8 @@ export async function uploadPatientDocument(
 export async function processDocument(
   documentId: string
 ): Promise<{ status: string; message?: string }> {
-<<<<<<< HEAD
-  try {
-    return await apiRequest<{ status: string; message?: string }>(
-      `/api/documents/${documentId}/process`,
-      {
-        method: "POST",
-      }
-    );
-  } catch (e) {
-    if (USE_MOCK) return { status: "completed", message: "Document processed" };
-    throw e;
-=======
   if (USE_MOCK) {
     return { status: "completed", message: "Document processed" };
->>>>>>> 926d651 (fix: auto-authenticate patient sessions, fix upload auth error, and persist uploaded documents)
   }
   return apiRequest<{ status: string; message?: string }>(
     `/api/documents/${documentId}/process`,
@@ -608,56 +498,14 @@ export async function getPatientAccessCodes(
       hospital: "City Health Clinic",
       specialty: "Internal Medicine",
     }));
-<<<<<<< HEAD
-  } catch (e) {
-    if (USE_MOCK) return mockDoctorAccess;
-    throw e;
-=======
   } catch {
     return mockDoctorAccess;
->>>>>>> 926d651 (fix: auto-authenticate patient sessions, fix upload auth error, and persist uploaded documents)
   }
 }
 
 export async function generateDoctorAccessCode(
   patientId: string
 ): Promise<DoctorAccess> {
-<<<<<<< HEAD
-  try {
-    const rawAccess = await apiRequest<{
-      id: string;
-      patient_id: string;
-      doctor_id?: string;
-      access_code: string;
-      status: string;
-      granted_at?: string;
-      expires_at?: string;
-    }>(`/api/patients/${patientId}/access`, {
-      method: "POST",
-    });
-
-    return {
-      id: rawAccess.id,
-      doctorName: "Pending Doctor Verification",
-      accessCode: rawAccess.access_code,
-      grantedAt: rawAccess.granted_at ? rawAccess.granted_at.split("T")[0] : new Date().toISOString().split("T")[0],
-      expiresAt: rawAccess.expires_at ? rawAccess.expires_at.split("T")[0] : "24 Hours",
-      active: rawAccess.status === "active",
-    };
-  } catch (e) {
-    if (USE_MOCK) {
-      const newCode = `MED-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
-      return {
-        id: `acc-${Date.now()}`,
-        doctorName: "Pending Doctor Verification",
-        accessCode: newCode,
-        grantedAt: new Date().toISOString().split("T")[0],
-        expiresAt: "2026-09-30",
-        active: true,
-      };
-    }
-    throw e;
-=======
   if (USE_MOCK) {
     const newCode = `MED-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
     return {
@@ -668,7 +516,6 @@ export async function generateDoctorAccessCode(
       expiresAt: "2026-09-30",
       active: true,
     };
->>>>>>> 926d651 (fix: auto-authenticate patient sessions, fix upload auth error, and persist uploaded documents)
   }
 
   await ensurePatientSession();
@@ -705,19 +552,8 @@ export async function revokeDoctorAccess(
   patientId: string,
   accessId: string
 ): Promise<{ success: boolean }> {
-<<<<<<< HEAD
-  try {
-    await apiRequest<void>(`/api/patients/${patientId}/access/${accessId}`, {
-      method: "DELETE",
-    });
-    return { success: true };
-  } catch (e) {
-    if (USE_MOCK) return { success: true };
-    throw e;
-=======
   if (USE_MOCK) {
     return { success: true };
->>>>>>> 926d651 (fix: auto-authenticate patient sessions, fix upload auth error, and persist uploaded documents)
   }
   await apiRequest<void>(`/api/patients/${patientId}/access/${accessId}`, {
     method: "DELETE",
@@ -731,26 +567,8 @@ export async function revokeDoctorAccess(
 export async function authorizeDoctorAccessCode(
   accessCode: string
 ): Promise<{ patientId: string }> {
-<<<<<<< HEAD
-  try {
-    const claim = await apiRequest<{
-      id: string;
-      patient_id: string;
-      doctor_id?: string;
-      access_code: string;
-      status: string;
-    }>("/api/doctor/access", {
-      method: "POST",
-      body: JSON.stringify({ access_code: accessCode.trim().toUpperCase() }),
-    });
-    return { patientId: claim.patient_id };
-  } catch (e) {
-    if (USE_MOCK) return { patientId: mockPatient.id };
-    throw e;
-=======
   if (USE_MOCK) {
     return { patientId: mockPatient.id };
->>>>>>> 926d651 (fix: auto-authenticate patient sessions, fix upload auth error, and persist uploaded documents)
   }
   await ensureDoctorSession();
 
@@ -802,46 +620,11 @@ export async function getDoctorPatients(): Promise<Patient[]> {
       medicalEventCount: 9,
       lastUpdated: p.updated_at || p.created_at,
     }));
-<<<<<<< HEAD
-  } catch (e) {
-    if (USE_MOCK) return [mockPatient];
-    throw e;
-  }
-}
-
-export async function getDoctorPatientDetails(
-  patientId: string
-): Promise<{
-  patient: Patient;
-  briefing: MedicalBriefing;
-  timeline: TimelineEvent[];
-}> {
-  try {
-    const [patient, briefing, timeline] = await Promise.all([
-      getPatient(patientId),
-      getPatientSummary(patientId),
-      getPatientTimeline(patientId),
-    ]);
-    return { patient, briefing, timeline };
-  } catch (e) {
-    if (USE_MOCK) {
-      return {
-        patient: mockPatient,
-        briefing: mockBriefing,
-        timeline: mockTimelineEvents,
-      };
-    }
-    throw e;
-  }
-}
-
-=======
   } catch {
     return [mockPatient];
   }
 }
 
->>>>>>> 926d651 (fix: auto-authenticate patient sessions, fix upload auth error, and persist uploaded documents)
 // -------------------------------------------------------------
 // Timeline, Briefing, and Evidence APIs
 // -------------------------------------------------------------
@@ -853,33 +636,6 @@ export async function getPatientTimeline(
   }
 
   try {
-<<<<<<< HEAD
-    const data = await apiRequest<any>(`/api/patients/${patientId}/timeline`);
-    const events = data.events || [];
-    return events.map((ev: any) => ({
-      id: ev.id,
-      date: ev.event_date,
-      eventType: ev.event_type || "consultation",
-      title: ev.title,
-      description: ev.description || "",
-      confidence: ev.confidence === "high" ? 0.95 : 0.8,
-      evidence: ev.evidence
-        ? [
-            {
-              id: `ev-${ev.id}`,
-              documentId: ev.evidence.document_id || "",
-              documentName: "Medical Record",
-              page: ev.evidence.page_number || 1,
-              relevantText: ev.evidence.source_text || "",
-              confidence: 0.9,
-            },
-          ]
-        : [],
-    }));
-  } catch (e) {
-    if (USE_MOCK) return mockTimelineEvents;
-    throw e;
-=======
     const rawTimeline = await apiRequest<{
       events: Array<{
         id: string;
@@ -933,7 +689,6 @@ export async function getPatientTimeline(
     });
   } catch {
     return mockTimelineEvents;
->>>>>>> 926d651 (fix: auto-authenticate patient sessions, fix upload auth error, and persist uploaded documents)
   }
 }
 
@@ -1030,14 +785,8 @@ export async function getPatientSummary(
       importantPoints: sj.important_points_for_doctor || sj.important_points || mockBriefing.importantPoints,
       uncertainInformation: sj.uncertain_information || mockBriefing.uncertainInformation,
     };
-<<<<<<< HEAD
-  } catch (e) {
-    if (USE_MOCK) return mockBriefing;
-    throw e;
-=======
   } catch {
     return mockBriefing;
->>>>>>> 926d651 (fix: auto-authenticate patient sessions, fix upload auth error, and persist uploaded documents)
   }
 }
 
@@ -1067,17 +816,8 @@ export async function getEventEvidence(eventId: string): Promise<Evidence[]> {
         confidence: 0.95,
       },
     ];
-<<<<<<< HEAD
-  } catch (e) {
-    if (USE_MOCK) {
-      const evt = mockTimelineEvents.find((e) => e.id === eventId);
-      return evt?.evidence || [];
-    }
-    throw e;
-=======
   } catch {
     return [];
->>>>>>> 926d651 (fix: auto-authenticate patient sessions, fix upload auth error, and persist uploaded documents)
   }
 }
 
@@ -1098,49 +838,6 @@ export async function getOrCreateChatSession(
     targetId = patList[0]?.id || "patient-001";
   }
 
-<<<<<<< HEAD
-    return {
-      id: `chat-${Date.now()}`,
-      role: "assistant",
-      content: res.answer,
-      createdAt: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      evidence: (res.evidence || []).map((ev: any, idx: number) => ({
-        id: `ev-${idx}`,
-        documentId: ev.document_id || "",
-        documentName: ev.filename || "Medical Document",
-        page: ev.page_number || 1,
-        relevantText: ev.source_text || "",
-        confidence: ev.relevance_score || 0.9,
-      })),
-    };
-  } catch (e) {
-    if (USE_MOCK) {
-      const lower = query.toLowerCase();
-      const matched = mockChatAnswers.find((ans) =>
-        ans.matchQueries.some((kw) => lower.includes(kw))
-      );
-
-      if (matched) {
-        return {
-          id: `chat-${Date.now()}`,
-          role: "assistant",
-          content: matched.response,
-          createdAt: new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-          evidence: matched.evidence,
-          warning: matched.warning,
-          isConflict: matched.isConflict,
-          isOutOfScope: matched.isOutOfScope,
-        };
-      }
-    }
-    throw e;
-=======
   return apiRequest<{ id: string; patient_id: string; doctor_id: string }>(
     `/api/doctor/patients/${targetId}/chat`,
     {
@@ -1188,22 +885,8 @@ export async function sendDoctorChatMessage(
       status: "not_found",
       evidence: [],
     };
->>>>>>> 926d651 (fix: auto-authenticate patient sessions, fix upload auth error, and persist uploaded documents)
   }
 
-<<<<<<< HEAD
-export async function getOrCreateChatSession(
-  patientId: string
-): Promise<{ id: string }> {
-  try {
-    return await apiRequest<{ id: string }>(`/api/doctor/patients/${patientId}/chat`, {
-      method: "POST",
-    });
-  } catch (e) {
-    if (USE_MOCK) return { id: `session-${patientId}` };
-    throw e;
-  }
-=======
   return apiRequest<{
     answer: string;
     status: string;
@@ -1218,7 +901,6 @@ export async function getOrCreateChatSession(
     method: "POST",
     body: JSON.stringify({ question }),
   });
->>>>>>> 926d651 (fix: auto-authenticate patient sessions, fix upload auth error, and persist uploaded documents)
 }
 
 export async function askPatientRecords(
