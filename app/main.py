@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -20,10 +21,9 @@ from app.routers import (
     chat,
 )
 
-from contextlib import asynccontextmanager
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Create database tables automatically on startup
     Base.metadata.create_all(bind=engine)
     yield
 
@@ -36,18 +36,21 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS configuration
-origins = [
-    settings.FRONTEND_URL,
+# Robust CORS configuration for Local Dev and Cloud Production
+allowed_origins = [
     "http://localhost:3000",
-    "http://localhost:5173",
     "http://127.0.0.1:3000",
+    "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
 
+if settings.FRONTEND_URL and settings.FRONTEND_URL not in allowed_origins:
+    allowed_origins.append(settings.FRONTEND_URL)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Hackathon friendly full origin support
+    allow_origins=allowed_origins,
+    allow_origin_regex=r"https:\/\/.*\.vercel\.app|https:\/\/.*\.onrender\.com",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -64,7 +67,7 @@ def health_check(db: Session = Depends(get_db)):
     return {
         "status": "ok",
         "database": db_status,
-        "environment": "hackathon-demo"
+        "environment": "production" if not settings.DATABASE_URL.startswith("sqlite") else "development"
     }
 
 # Register API Routers

@@ -13,4 +13,3 @@ pytest>=8.1.1
 email-validator>=2.0.0
 Pillow>=10.0.0
 pypdf>=4.0.0
-

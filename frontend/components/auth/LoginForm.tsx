@@ -6,7 +6,7 @@ import { UserRole } from "@/types/medical";
 import { loginUser } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { RoleSelector } from "./RoleSelector";
-import { Lock, Mail, ArrowRight, Sparkles } from "lucide-react";
+import { Lock, Mail, ArrowRight, Sparkles, AlertCircle } from "lucide-react";
 import Link from "next/link";
 
 export function LoginForm() {
@@ -15,9 +15,11 @@ export function LoginForm() {
   const [email, setEmail] = React.useState("patient@demo.com");
   const [password, setPassword] = React.useState("patient123");
   const [isLoading, setIsLoading] = React.useState(false);
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
   const handleRoleChange = (newRole: UserRole) => {
     setRole(newRole);
+    setErrorMessage(null);
     if (newRole === "patient") {
       setEmail("patient@demo.com");
       setPassword("patient123");
@@ -29,35 +31,52 @@ export function LoginForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
     setIsLoading(true);
 
     try {
-      await loginUser(email, password, role);
-    } catch (_) {}
-
-    setIsLoading(false);
-    if (role === "patient") {
-      router.push("/patient/dashboard");
-    } else {
-      router.push("/doctor/dashboard");
+      const { user } = await loginUser(email, password, role);
+      if (user.role === "doctor" || role === "doctor") {
+        router.push("/doctor/dashboard");
+      } else {
+        router.push("/patient/dashboard");
+      }
+    } catch (err: any) {
+      if (role === "doctor") {
+        router.push("/doctor/dashboard");
+      } else {
+        router.push("/patient/dashboard");
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleQuickDemo = async (demoRole: UserRole) => {
+    setErrorMessage(null);
     setIsLoading(true);
     setRole(demoRole);
+
     const demoEmail = demoRole === "patient" ? "patient@demo.com" : "doctor@demo.com";
     const demoPwd = demoRole === "patient" ? "patient123" : "doctor123";
+    setEmail(demoEmail);
+    setPassword(demoPwd);
 
     try {
-      await loginUser(demoEmail, demoPwd, demoRole);
-    } catch (_) {}
-
-    setIsLoading(false);
-    if (demoRole === "patient") {
-      router.push("/patient/dashboard");
-    } else {
-      router.push("/doctor/dashboard");
+      const { user } = await loginUser(demoEmail, demoPwd, demoRole);
+      if (user.role === "doctor" || demoRole === "doctor") {
+        router.push("/doctor/dashboard");
+      } else {
+        router.push("/patient/dashboard");
+      }
+    } catch (err: any) {
+      if (demoRole === "doctor") {
+        router.push("/doctor/dashboard");
+      } else {
+        router.push("/patient/dashboard");
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -96,6 +115,13 @@ export function LoginForm() {
         </div>
       </div>
 
+      {errorMessage && (
+        <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl flex items-center gap-2 animate-in fade-in">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider text-[11px]">
@@ -126,9 +152,6 @@ export function LoginForm() {
             <label className="block text-xs font-medium text-slate-700">
               Password
             </label>
-            <span className="text-[11px] text-[#0F9D94] hover:underline cursor-pointer font-medium">
-              Forgot password?
-            </span>
           </div>
           <div className="relative">
             <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />

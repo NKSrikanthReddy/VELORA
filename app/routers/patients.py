@@ -9,6 +9,22 @@ from app.dependencies.permissions import require_patient, verify_patient_ownersh
 
 router = APIRouter(prefix="/api/patients", tags=["Patients"])
 
+@router.get("/me", response_model=PatientResponse)
+def get_my_patient_profile(
+    current_user: User = Depends(require_patient),
+    db: Session = Depends(get_db)
+):
+    patient = db.query(Patient).filter(Patient.user_id == current_user.id).first()
+    if not patient:
+        patient = Patient(
+            user_id=current_user.id,
+            name=current_user.name
+        )
+        db.add(patient)
+        db.commit()
+        db.refresh(patient)
+    return patient
+
 @router.post("", response_model=PatientResponse, status_code=status.HTTP_201_CREATED)
 def create_patient_profile(
     patient_in: PatientCreate,

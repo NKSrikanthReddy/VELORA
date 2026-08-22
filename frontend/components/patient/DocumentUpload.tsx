@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
+import { uploadPatientDocument, processDocument, USE_MOCK } from "@/lib/api";
 import Link from "next/link";
 
 interface UploadItem {
@@ -25,11 +26,20 @@ interface UploadItem {
   status: "queued" | "uploading" | "extracting" | "completed" | "error";
   extractedCount?: number;
   errorMessage?: string;
+  rawFile?: File;
 }
 
-const SUPPORTED_EXTENSIONS = ["pdf", "jpg", "jpeg", "png"];
+const SUPPORTED_EXTENSIONS = ["pdf", "jpg", "jpeg", "png", "txt"];
 
-export function DocumentUpload() {
+interface DocumentUploadProps {
+  patientId?: string;
+  onUploadSuccess?: () => void;
+}
+
+export function DocumentUpload({
+  patientId = "patient-001",
+  onUploadSuccess,
+}: DocumentUploadProps) {
   const [isDragging, setIsDragging] = React.useState(false);
   const [queue, setQueue] = React.useState<UploadItem[]>([
     {
@@ -55,8 +65,8 @@ export function DocumentUpload() {
       name: "Discharge_Summary_2025.pdf",
       size: "2.4 MB",
       type: "application/pdf",
-      progress: 75,
-      status: "extracting",
+      progress: 100,
+      status: "completed",
       extractedCount: 8,
     },
   ]);
@@ -72,8 +82,13 @@ export function DocumentUpload() {
       const ext = file.name.split(".").pop()?.toLowerCase() || "";
       if (!SUPPORTED_EXTENSIONS.includes(ext)) {
         setErrorBanner(
-          `"${file.name}" is not a supported file type. Only PDF, JPG, JPEG, and PNG files are accepted.`
+          `"${file.name}" is not a supported file type. Only PDF, JPG, JPEG, PNG, and TXT files are accepted.`
         );
+        return;
+      }
+
+      if (file.size > 20 * 1024 * 1024) {
+        setErrorBanner(`"${file.name}" exceeds the maximum allowed file size of 20MB.`);
         return;
       }
 
@@ -89,58 +104,103 @@ export function DocumentUpload() {
         type: file.type || ext.toUpperCase(),
         progress: 0,
         status: "queued",
+        rawFile: file,
       });
     });
 
     if (newItems.length > 0) {
       setQueue((prev) => [...newItems, ...prev]);
 
-      // Simulate sequential AI processing for uploaded files
-      newItems.forEach((item, index) => {
-        simulateProcessing(item.id, index * 600);
+      // Execute upload pipeline
+      newItems.forEach((item) => {
+        if (item.rawFile) {
+          executeUploadPipeline(item.id, item.rawFile);
+        }
       });
     }
   };
 
-  const simulateProcessing = (itemId: string, delay: number) => {
-    setTimeout(() => {
-      // Step 1: Uploading (0% -> 60%)
+  const executeUploadPipeline = async (itemId: string, file: File) => {
+    // Step 1: Set Uploading State
+    setQueue((prev) =>
+      prev.map((doc) =>
+        doc.id === itemId ? { ...doc, status: "uploading", progress: 40 } : doc
+      )
+    );
+
+    try {
+      if (USE_MOCK) {
+        // Simulated workflow in mock mode
+        setTimeout(() => {
+          setQueue((prev) =>
+            prev.map((doc) =>
+              doc.id === itemId ? { ...doc, status: "extracting", progress: 85 } : doc
+            )
+          );
+
+          setTimeout(() => {
+            const randomEntities = Math.floor(Math.random() * 8) + 4;
+            setQueue((prev) =>
+              prev.map((doc) =>
+                doc.id === itemId
+                  ? {
+                      ...doc,
+                      status: "completed",
+                      progress: 100,
+                      extractedCount: randomEntities,
+                    }
+                  : doc
+              )
+            );
+            if (onUploadSuccess) onUploadSuccess();
+          }, 1000);
+        }, 800);
+        return;
+      }
+
+      // Real Backend API Call: Upload Document
+      const uploadedDoc = await uploadPatientDocument(patientId, file);
+
+      // Step 2: Set Extracting State
       setQueue((prev) =>
         prev.map((doc) =>
           doc.id === itemId
-            ? { ...doc, status: "uploading", progress: 45 }
+            ? { ...doc, id: uploadedDoc.id, status: "extracting", progress: 80 }
             : doc
         )
       );
 
-      setTimeout(() => {
-        // Step 2: AI Extracting (60% -> 90%)
-        setQueue((prev) =>
-          prev.map((doc) =>
-            doc.id === itemId
-              ? { ...doc, status: "extracting", progress: 85 }
-              : doc
-          )
-        );
+      // Step 3: Trigger Document AI Processing
+      await processDocument(uploadedDoc.id);
 
-        setTimeout(() => {
-          // Step 3: Completed (100% & entity count)
-          const randomEntities = Math.floor(Math.random() * 8) + 4;
-          setQueue((prev) =>
-            prev.map((doc) =>
-              doc.id === itemId
-                ? {
-                    ...doc,
-                    status: "completed",
-                    progress: 100,
-                    extractedCount: randomEntities,
-                  }
-                : doc
-            )
-          );
-        }, 1200);
-      }, 1000);
-    }, delay);
+      // Step 4: Completed
+      setQueue((prev) =>
+        prev.map((doc) =>
+          doc.id === uploadedDoc.id || doc.id === itemId
+            ? {
+                ...doc,
+                status: "completed",
+                progress: 100,
+                extractedCount: 8,
+              }
+            : doc
+        )
+      );
+
+      if (onUploadSuccess) onUploadSuccess();
+    } catch (err: any) {
+      setQueue((prev) =>
+        prev.map((doc) =>
+          doc.id === itemId
+            ? {
+                ...doc,
+                status: "error",
+                errorMessage: err.message || "Failed to process document.",
+              }
+            : doc
+        )
+      );
+    }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -207,7 +267,7 @@ export function DocumentUpload() {
           ref={fileInputRef}
           type="file"
           multiple
-          accept=".pdf,.jpg,.jpeg,.png"
+          accept=".pdf,.jpg,.jpeg,.png,.txt"
           onChange={handleFileSelect}
           className="hidden"
         />
@@ -239,8 +299,8 @@ export function DocumentUpload() {
           <span className="font-medium text-slate-500">Supported Formats:</span>
           <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-mono font-medium">PDF</span>
           <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-mono font-medium">JPG</span>
-          <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-mono font-medium">JPEG</span>
           <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-mono font-medium">PNG</span>
+          <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-mono font-medium">TXT</span>
         </div>
       </div>
 
@@ -303,6 +363,12 @@ export function DocumentUpload() {
                       </span>
                     </p>
                   )}
+
+                  {item.status === "error" && (
+                    <p className="text-[11px] text-rose-600 mt-0.5">
+                      {item.errorMessage || "Processing failed. Please retry."}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -330,6 +396,11 @@ export function DocumentUpload() {
                   {item.status === "queued" && (
                     <Badge variant="default" size="sm">
                       <span>Queued</span>
+                    </Badge>
+                  )}
+                  {item.status === "error" && (
+                    <Badge variant="danger" size="sm">
+                      <span>Failed</span>
                     </Badge>
                   )}
                 </div>

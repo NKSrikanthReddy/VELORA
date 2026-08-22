@@ -4,7 +4,7 @@ import * as React from "react";
 import { ChatMessage as ChatMessageType, Evidence } from "@/types/medical";
 import { ChatMessage } from "./ChatMessage";
 import { Button } from "@/components/ui/Button";
-import { mockChatAnswers } from "@/data/mockData";
+import { askPatientRecords, getOrCreateChatSession } from "@/lib/api";
 import {
   Sparkles,
   Send,
@@ -14,10 +14,15 @@ import {
 } from "lucide-react";
 
 interface AskMyRecordsProps {
+  patientId?: string;
   onViewEvidence: (evidence: Evidence) => void;
 }
 
-export function AskMyRecords({ onViewEvidence }: AskMyRecordsProps) {
+export function AskMyRecords({
+  patientId = "patient-001",
+  onViewEvidence,
+}: AskMyRecordsProps) {
+  const [sessionId, setSessionId] = React.useState<string | null>(null);
   const [messages, setMessages] = React.useState<ChatMessageType[]>([
     {
       id: "msg-init-1",
@@ -48,6 +53,25 @@ export function AskMyRecords({ onViewEvidence }: AskMyRecordsProps) {
   const [isThinking, setIsThinking] = React.useState(false);
   const chatBottomRef = React.useRef<HTMLDivElement>(null);
 
+  // Initialize chat session on mount
+  React.useEffect(() => {
+    let isMounted = true;
+    async function initSession() {
+      try {
+        const session = await getOrCreateChatSession(patientId);
+        if (isMounted && session?.id) {
+          setSessionId(session.id);
+        }
+      } catch (err) {
+        console.warn("Could not pre-init session:", err);
+      }
+    }
+    initSession();
+    return () => {
+      isMounted = false;
+    };
+  }, [patientId]);
+
   const presetQuestions = [
     "What medications has the patient taken?",
     "What was the latest HbA1c?",
@@ -57,7 +81,7 @@ export function AskMyRecords({ onViewEvidence }: AskMyRecordsProps) {
     "Can you diagnose chest pain?",
   ];
 
-  const handleAsk = (queryText: string) => {
+  const handleAsk = async (queryText: string) => {
     if (!queryText.trim() || isThinking) return;
 
     const currentQuery = queryText.trim();
@@ -78,39 +102,22 @@ export function AskMyRecords({ onViewEvidence }: AskMyRecordsProps) {
     setMessages((prev) => [...prev, userMessage]);
     setIsThinking(true);
 
-    setTimeout(() => {
-      // Find matching mock answer
-      const lowerQuery = currentQuery.toLowerCase();
-      const matched = mockChatAnswers.find((ans) =>
-        ans.matchQueries.some((keyword) => lowerQuery.includes(keyword))
-      );
-
-      let botResponse: ChatMessageType;
-
-      if (matched) {
-        botResponse = {
-          id: `bot-${Date.now()}`,
-          role: "assistant",
-          content: matched.response,
-          createdAt: nowStr,
-          evidence: matched.evidence,
-          warning: matched.warning,
-          isConflict: matched.isConflict,
-          isOutOfScope: matched.isOutOfScope,
-        };
-      } else {
-        botResponse = {
-          id: `bot-${Date.now()}`,
-          role: "assistant",
-          content:
-            "I could not find this information in the patient's available medical records. Please verify directly with the patient or upload additional documents.",
-          createdAt: nowStr,
-        };
-      }
-
+    try {
+      const botResponse = await askPatientRecords(patientId, currentQuery, sessionId || undefined);
       setMessages((prev) => [...prev, botResponse]);
+    } catch (err: any) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `bot-err-${Date.now()}`,
+          role: "assistant",
+          content: err.message || "Failed to query patient records.",
+          createdAt: nowStr,
+        },
+      ]);
+    } finally {
       setIsThinking(false);
-    }, 450);
+    }
   };
 
   const handleResetChat = () => {
@@ -119,7 +126,7 @@ export function AskMyRecords({ onViewEvidence }: AskMyRecordsProps) {
         id: "msg-welcome",
         role: "assistant",
         content:
-          "Hello Doctor. You can ask any question grounded in Rahul Sharma's available consolidated medical documents (prescriptions, lab tests, hospital records).",
+          "Hello Doctor. You can ask any question grounded in the patient's available consolidated medical documents (prescriptions, lab tests, hospital records).",
         createdAt: "Now",
       },
     ]);
@@ -192,7 +199,7 @@ export function AskMyRecords({ onViewEvidence }: AskMyRecordsProps) {
         {isThinking && (
           <div className="flex items-center gap-2 text-xs text-slate-500 p-3.5 rounded-xl bg-slate-100/90 animate-pulse w-fit border border-slate-200/60">
             <Sparkles className="w-4 h-4 text-[#0F9D94] animate-spin" />
-            <span>Searching 12 medical records and verifying source documents...</span>
+            <span>Searching medical records and verifying source documents...</span>
           </div>
         )}
 

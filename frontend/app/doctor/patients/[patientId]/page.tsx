@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { DoctorSidebar } from "@/components/doctor/DoctorSidebar";
 import { PatientHeader } from "@/components/doctor/PatientHeader";
 import { PatientStats } from "@/components/doctor/PatientStats";
@@ -10,21 +11,41 @@ import { MedicalTimeline } from "@/components/medical/MedicalTimeline";
 import { AskMyRecords } from "@/components/chat/AskMyRecords";
 import { EvidenceModal } from "@/components/evidence/EvidenceModal";
 import {
+  getPatient,
+  getPatientSummary,
+  getPatientTimeline,
+  USE_MOCK,
+} from "@/lib/api";
+import {
   mockPatient,
   mockBriefing,
   mockTimelineEvents,
 } from "@/data/mockData";
-import { Evidence } from "@/types/medical";
+import {
+  Evidence,
+  Patient,
+  MedicalBriefing as MedicalBriefingType,
+  TimelineEvent,
+} from "@/types/medical";
 import {
   Sparkles,
   Clock,
   Search,
   ArrowLeft,
   ShieldCheck,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function DoctorPatientPage() {
+  const params = useParams();
+  const patientId = (params?.patientId as string) || "patient-001";
+
+  const [patient, setPatient] = React.useState<Patient>(mockPatient);
+  const [briefing, setBriefing] = React.useState<MedicalBriefingType>(mockBriefing);
+  const [timelineEvents, setTimelineEvents] = React.useState<TimelineEvent[]>(mockTimelineEvents);
+  const [isLoading, setIsLoading] = React.useState(!USE_MOCK);
+
   const [activeSection, setActiveSection] = React.useState<
     "briefing" | "timeline" | "chat"
   >("briefing");
@@ -33,6 +54,30 @@ export default function DoctorPatientPage() {
   const briefingRef = React.useRef<HTMLDivElement>(null);
   const timelineRef = React.useRef<HTMLDivElement>(null);
   const chatRef = React.useRef<HTMLDivElement>(null);
+
+  const loadPatientData = React.useCallback(async () => {
+    if (USE_MOCK) return;
+    try {
+      setIsLoading(true);
+      const [patRes, summaryRes, timelineRes] = await Promise.all([
+        getPatient(patientId).catch(() => mockPatient),
+        getPatientSummary(patientId).catch(() => mockBriefing),
+        getPatientTimeline(patientId).catch(() => mockTimelineEvents),
+      ]);
+
+      if (patRes) setPatient(patRes);
+      if (summaryRes) setBriefing(summaryRes);
+      if (timelineRes) setTimelineEvents(timelineRes);
+    } catch (err) {
+      console.warn("Using fallback doctor patient data:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [patientId]);
+
+  React.useEffect(() => {
+    loadPatientData();
+  }, [loadPatientData]);
 
   const scrollToSection = (sec: "briefing" | "timeline" | "chat") => {
     setActiveSection(sec);
@@ -62,10 +107,10 @@ export default function DoctorPatientPage() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-base font-extrabold text-[#0F172A] tracking-tight">
-                  {mockPatient.name}
+                  {patient.name}
                 </span>
                 <span className="text-xs text-slate-400 font-mono">
-                  (ID: {mockPatient.id})
+                  (ID: {patient.id})
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 font-normal">
@@ -99,7 +144,7 @@ export default function DoctorPatientPage() {
               )}
             >
               <Clock className="w-3.5 h-3.5" />
-              <span>Timeline (2022–2026)</span>
+              <span>Timeline</span>
             </button>
 
             <button
@@ -119,73 +164,84 @@ export default function DoctorPatientPage() {
 
         {/* Dashboard Body */}
         <main className="p-4 sm:p-8 max-w-6xl w-full mx-auto space-y-8">
-          {/* Patient Demographic & Quick Highlights Header */}
-          <PatientHeader
-            patient={mockPatient}
-            onScrollToChat={() => scrollToSection("chat")}
-            onScrollToTimeline={() => scrollToSection("timeline")}
-          />
-
-          <PatientStats patient={mockPatient} />
-
-          {/* SECTION 1: AI CLINICAL BRIEFING */}
-          <section ref={briefingRef} className="scroll-mt-24 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-6 rounded-full bg-[#0F9D94]" />
-                <h2 className="text-lg sm:text-xl font-extrabold text-[#0F172A] tracking-tight">
-                  1. AI Medical Briefing
-                </h2>
+          {isLoading ? (
+            <div className="flex items-center justify-center p-12 bg-white rounded-2xl border border-slate-200 shadow-xs">
+              <div className="flex items-center gap-3 text-sm text-slate-600 font-medium">
+                <Loader2 className="w-5 h-5 text-[#0F9D94] animate-spin" />
+                <span>Loading patient record synthesis and clinical timeline...</span>
               </div>
-              <span className="text-xs text-slate-500 font-medium hidden sm:inline">
-                Instant synthesis for clinician review
-              </span>
             </div>
-
-            <MedicalBriefing
-              briefing={mockBriefing}
-              onViewEvidence={setSelectedEvidence}
-            />
-          </section>
-
-          {/* SECTION 2: CHRONOLOGICAL MEDICAL TIMELINE */}
-          <section ref={timelineRef} className="scroll-mt-24 space-y-4 pt-6 border-t border-slate-200/80">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-6 rounded-full bg-cyan-600" />
-                <h2 className="text-lg sm:text-xl font-extrabold text-[#0F172A] tracking-tight">
-                  2. Chronological Medical Timeline
-                </h2>
-              </div>
-              <span className="text-xs text-slate-500 font-medium hidden sm:inline">
-                Multi-year event progression
-              </span>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-6 sm:p-7 shadow-xs">
-              <MedicalTimeline
-                events={mockTimelineEvents}
-                onViewEvidence={setSelectedEvidence}
+          ) : (
+            <>
+              {/* Patient Demographic & Quick Highlights Header */}
+              <PatientHeader
+                patient={patient}
+                onScrollToChat={() => scrollToSection("chat")}
+                onScrollToTimeline={() => scrollToSection("timeline")}
               />
-            </div>
-          </section>
 
-          {/* SECTION 3: ASK MY RECORDS Q&A ASSISTANT */}
-          <section ref={chatRef} className="scroll-mt-24 space-y-4 pt-6 border-t border-slate-200/80">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-6 rounded-full bg-[#0F172A]" />
-                <h2 className="text-lg sm:text-xl font-extrabold text-[#0F172A] tracking-tight">
-                  3. Ask My Records Assistant
-                </h2>
-              </div>
-              <span className="text-xs text-slate-500 font-medium hidden sm:inline">
-                Evidence-grounded natural language search
-              </span>
-            </div>
+              <PatientStats patient={patient} />
 
-            <AskMyRecords onViewEvidence={setSelectedEvidence} />
-          </section>
+              {/* SECTION 1: AI CLINICAL BRIEFING */}
+              <section ref={briefingRef} className="scroll-mt-24 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-6 rounded-full bg-[#0F9D94]" />
+                    <h2 className="text-lg sm:text-xl font-extrabold text-[#0F172A] tracking-tight">
+                      1. AI Medical Briefing
+                    </h2>
+                  </div>
+                  <span className="text-xs text-slate-500 font-medium hidden sm:inline">
+                    Instant synthesis for clinician review
+                  </span>
+                </div>
+
+                <MedicalBriefing
+                  briefing={briefing}
+                  onViewEvidence={setSelectedEvidence}
+                />
+              </section>
+
+              {/* SECTION 2: CHRONOLOGICAL MEDICAL TIMELINE */}
+              <section ref={timelineRef} className="scroll-mt-24 space-y-4 pt-6 border-t border-slate-200/80">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-6 rounded-full bg-cyan-600" />
+                    <h2 className="text-lg sm:text-xl font-extrabold text-[#0F172A] tracking-tight">
+                      2. Chronological Medical Timeline
+                    </h2>
+                  </div>
+                  <span className="text-xs text-slate-500 font-medium hidden sm:inline">
+                    Multi-year event progression
+                  </span>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-slate-200/90 p-6 sm:p-7 shadow-xs">
+                  <MedicalTimeline
+                    events={timelineEvents}
+                    onViewEvidence={setSelectedEvidence}
+                  />
+                </div>
+              </section>
+
+              {/* SECTION 3: ASK MY RECORDS Q&A ASSISTANT */}
+              <section ref={chatRef} className="scroll-mt-24 space-y-4 pt-6 border-t border-slate-200/80">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-6 rounded-full bg-[#0F172A]" />
+                    <h2 className="text-lg sm:text-xl font-extrabold text-[#0F172A] tracking-tight">
+                      3. Ask My Records Assistant
+                    </h2>
+                  </div>
+                  <span className="text-xs text-slate-500 font-medium hidden sm:inline">
+                    Evidence-grounded natural language search
+                  </span>
+                </div>
+
+                <AskMyRecords patientId={patient.id} onViewEvidence={setSelectedEvidence} />
+              </section>
+            </>
+          )}
 
           {/* Footer Safety Notice */}
           <div className="flex items-center justify-center gap-2 text-xs text-slate-400 py-6 border-t border-slate-200/80">

@@ -4,6 +4,10 @@ from abc import ABC, abstractmethod
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, ValidationError
 
+from ai.services.medical_extractor import MedicalExtractor
+from ai.services.document_classifier import DocumentClassifier
+from ai.services.normalization_service import NormalizationService as AINormalizationService
+
 class EvidenceItem(BaseModel):
     document_id: Optional[str] = None
     page_number: Optional[int] = 1
@@ -51,33 +55,88 @@ class BaseExtractionService(ABC):
         pass
 
 class DefaultExtractionService(BaseExtractionService):
+    def __init__(self):
+        self.ai_extractor = MedicalExtractor()
+        self.ai_classifier = DocumentClassifier()
+        self.ai_normalizer = AINormalizationService()
+
     def extract(self, text: str, filename: str) -> CanonicalMedicalExtraction:
         """
-        Default AI extraction pipeline with 1-retry fallback for Member 2 integration.
-        Uses rule-based / regex extraction fallback if external LLM key is absent.
+        Unified extraction using AI module services with structured fallback.
         """
-        attempts = 0
-        max_attempts = 2
-        last_error = None
+        try:
+            pages = [{"page_number": 1, "text": text}]
+            ai_ext = self.ai_extractor.extract(pages, filename=filename)
+            classification = self.ai_classifier.classify(text)
 
-        while attempts < max_attempts:
-            attempts += 1
-            try:
-                raw_data = self._process_text_to_dict(text, filename)
-                # Pydantic validation
-                validated = CanonicalMedicalExtraction(**raw_data)
-                return validated
-            except ValidationError as ve:
-                last_error = ve
-                print(f"[ExtractionService] Validation attempt {attempts} failed: {ve}")
-            except Exception as e:
-                last_error = e
-                print(f"[ExtractionService] Extraction attempt {attempts} failed: {e}")
+            # Map AI extraction to CanonicalMedicalExtraction
+            meds = []
+            for m in ai_ext.medications:
+                meds.append(ExtractedMedication(
+                    name=m.name,
+                    dosage=m.dosage,
+                    frequency=m.frequency,
+                    route=m.route,
+                    status=m.status or "active",
+                    page_number=m.evidence.page_number if m.evidence else 1,
+                    source_text=m.evidence.source_text if m.evidence else None
+                ))
 
-        raise ValueError(f"Medical data extraction failed after {max_attempts} attempts: {last_error}")
+            labs = []
+            for l in ai_ext.lab_results:
+                labs.append(ExtractedLabResult(
+                    test_name=l.test_name,
+                    value=l.value,
+                    unit=l.unit,
+                    reference_range=l.reference_range,
+                    status=l.status or "normal",
+                    page_number=l.evidence.page_number if l.evidence else 1,
+                    source_text=l.evidence.source_text if l.evidence else None
+                ))
+
+            diagnoses = []
+            for d in ai_ext.diagnoses:
+                diagnoses.append({
+                    "title": d.text,
+                    "normalized_text": d.normalized_text or d.text,
+                    "status": d.status,
+                    "confidence": d.confidence,
+                    "page_number": d.evidence.page_number if d.evidence else 1,
+                    "source_text": d.evidence.source_text if d.evidence else None
+                })
+
+            evs = []
+            for e in ai_ext.evidence:
+                evs.append(EvidenceItem(
+                    document_id=e.document_id,
+                    page_number=e.page_number,
+                    source_text=e.source_text
+                ))
+
+            return CanonicalMedicalExtraction(
+                document_type=classification.document_type or ai_ext.document_type or "consultation",
+                date=ai_ext.date,
+                patient_name=ai_ext.patient_name,
+                hospital=ai_ext.hospital,
+                doctor=ai_ext.doctor,
+                diagnoses=diagnoses,
+                symptoms=ai_ext.symptoms,
+                medications=meds,
+                allergies=ai_ext.allergies,
+                lab_results=labs,
+                procedures=ai_ext.procedures,
+                vitals=[v.model_dump() for v in ai_ext.vitals],
+                past_medical_history=ai_ext.past_medical_history,
+                follow_up=ai_ext.follow_up,
+                evidence=evs
+            )
+        except Exception as e:
+            print(f"[ExtractionService] AI extraction fallback due to: {e}")
+            raw_data = self._process_text_to_dict(text, filename)
+            return CanonicalMedicalExtraction(**raw_data)
 
     def _process_text_to_dict(self, text: str, filename: str) -> Dict[str, Any]:
-        """Parse text into canonical dictionary structure."""
+        """Rule-based text parser fallback."""
         fn_lower = filename.lower()
         text_lower = text.lower()
 
@@ -143,6 +202,7 @@ class DefaultExtractionService(BaseExtractionService):
         if "diabetes" in text_lower:
             diagnoses.append({
                 "title": "Type 2 Diabetes Mellitus",
+                "normalized_text": "Type 2 Diabetes Mellitus",
                 "type": "chronic",
                 "confidence": "high",
                 "page_number": 1,

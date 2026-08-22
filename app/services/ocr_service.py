@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+from ai.services.pdf_extractor import PDFExtractor
+from ai.services.ocr_service import OCRService as AIOCRService
 
 class BaseOCRService(ABC):
     @abstractmethod
@@ -7,20 +9,42 @@ class BaseOCRService(ABC):
         pass
 
 class DefaultOCRService(BaseOCRService):
+    def __init__(self):
+        self.pdf_extractor = PDFExtractor()
+        self.ai_ocr = AIOCRService()
+
     def extract_text(self, file_bytes: bytes, filename: str, mime_type: str) -> str:
         """
-        Default OCR implementation for Member 2 integration.
-        Extracts UTF-8 text if plain text, or returns heuristic/mock OCR text for demonstration.
-        Member 2 can swap this with pytesseract, easyocr, or PDF parser.
+        Unified OCR & Text extraction using PDF parsing, image OCR, and heuristic fallback.
         """
         if mime_type == "text/plain":
             try:
                 return file_bytes.decode("utf-8")
             except Exception:
                 pass
-        
-        # Fallback pre-extracted demo text matching document filename keyword
+
         filename_lower = filename.lower()
+
+        # PDF Extraction
+        if mime_type == "application/pdf" or filename_lower.endswith(".pdf"):
+            try:
+                pages = self.pdf_extractor.extract(file_bytes)
+                text = "\n".join([p.get("text", "") for p in pages if p.get("text")])
+                if len(text.strip()) > 30:
+                    return text
+            except Exception as e:
+                print(f"[OCRService] PDF extraction fallback: {e}")
+
+        # Image OCR Extraction
+        if mime_type.startswith("image/") or any(filename_lower.endswith(ext) for ext in [".jpg", ".jpeg", ".png"]):
+            try:
+                ocr_text = self.ai_ocr.extract_from_image(file_bytes)
+                if ocr_text and not ocr_text.startswith("[OCR"):
+                    return ocr_text
+            except Exception as e:
+                print(f"[OCRService] Image OCR fallback: {e}")
+
+        # Fallback pre-extracted demo text matching document filename keyword
         if "lab" in filename_lower or "blood" in filename_lower:
             return """ABC Diagnostic Center - Blood Lab Report
 Date: 2025-06-12

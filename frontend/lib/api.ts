@@ -8,6 +8,9 @@ import {
   DoctorAccess,
   ChatMessage,
   Evidence,
+  Diagnosis,
+  Medication,
+  LabResult,
 } from "@/types/medical";
 import {
   mockUsers,
@@ -19,30 +22,67 @@ import {
   mockChatAnswers,
 } from "@/data/mockData";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+export const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
+export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-function getAuthToken(): string | null {
-  if (typeof window !== "undefined") {
-    return localStorage.getItem("token");
+const TOKEN_KEY = "velora_auth_token";
+const USER_KEY = "velora_auth_user";
+
+// -------------------------------------------------------------
+// Auth Token & Storage Helpers (Client-side safe)
+// -------------------------------------------------------------
+export function getAuthToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(TOKEN_KEY) || localStorage.getItem("token");
+}
+
+export function setAuthSession(token: string, user: User) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem("token", token);
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+  localStorage.setItem("user", JSON.stringify(user));
+}
+
+export function getStoredUser(): User | null {
+  if (typeof window === "undefined") return null;
+  const userJson = localStorage.getItem(USER_KEY) || localStorage.getItem("user");
+  if (!userJson) return null;
+  try {
+    return JSON.parse(userJson);
+  } catch {
+    return null;
   }
-  return null;
+}
+
+export function clearAuthSession() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem("token");
+  localStorage.removeItem(USER_KEY);
+  localStorage.removeItem("user");
 }
 
 /**
- * Generic fetch wrapper for backend API integration
+ * Centralized fetch wrapper with automatic JWT header, FormData support, and detailed error handling.
  */
-async function apiRequest<T>(
+export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
   const token = getAuthToken();
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...((options.headers as Record<string, string>) || {}),
-  };
+  const headers: Record<string, string> = {};
+
+  if (!(options.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
 
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  if (options.headers) {
+    Object.assign(headers, options.headers);
   }
 
   const res = await fetch(`${BASE_URL}${endpoint}`, {
@@ -51,15 +91,40 @@ async function apiRequest<T>(
   });
 
   if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.detail || errorData.message || `API error: ${res.status}`);
+    let errorMessage = `API error (${res.status}): ${res.statusText}`;
+    try {
+      const errorData = await res.json();
+      if (errorData.detail) {
+        if (typeof errorData.detail === "string") {
+          errorMessage = errorData.detail;
+        } else if (Array.isArray(errorData.detail)) {
+          errorMessage = errorData.detail
+            .map((item: any) => item.msg || JSON.stringify(item))
+            .join(", ");
+        }
+      } else if (errorData.message) {
+        errorMessage = errorData.message;
+      }
+    } catch {
+      // JSON parse fallback
+    }
+
+    if (res.status === 401) {
+      clearAuthSession();
+    }
+
+    throw new Error(errorMessage);
+  }
+
+  if (res.status === 204) {
+    return {} as T;
   }
 
   return res.json();
 }
 
 // -------------------------------------------------------------
-// Authentication API
+// Authentication APIs
 // -------------------------------------------------------------
 export async function loginUser(
   email: string,
@@ -67,26 +132,33 @@ export async function loginUser(
   role?: UserRole
 ): Promise<{ user: User; token: string }> {
   try {
-    const data = await apiRequest<{ access_token: string; token_type: string; user: any }>(
-      "/api/auth/login",
-      {
-        method: "POST",
-        body: JSON.stringify({ email, password: password || "password123" }),
-      }
-    );
-    const mappedUser: User = {
+    const data = await apiRequest<{
+      access_token: string;
+      token_type: string;
+      user: {
+        id: string;
+        name: string;
+        email: string;
+        role: UserRole;
+        created_at: string;
+      };
+    }>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password: password || "password123" }),
+    });
+
+    const user: User = {
       id: data.user.id,
       name: data.user.name,
       email: data.user.email,
-      role: data.user.role as UserRole,
+      role: data.user.role,
     };
-    if (typeof window !== "undefined") {
-      localStorage.setItem("token", data.access_token);
-      localStorage.setItem("user", JSON.stringify(mappedUser));
-    }
-    return { user: mappedUser, token: data.access_token };
+
+    setAuthSession(data.access_token, user);
+    return { user, token: data.access_token };
   } catch (e) {
     const fallbackUser = role === "doctor" ? mockUsers.doctor : mockUsers.patient;
+    setAuthSession("mock-jwt-token-fallback", fallbackUser);
     return { user: fallbackUser, token: "mock-jwt-token-fallback" };
   }
 }
@@ -98,29 +170,35 @@ export async function registerUser(
   role?: UserRole
 ): Promise<{ user: User; token: string }> {
   try {
-    const data = await apiRequest<{ access_token: string; token_type: string; user: any }>(
-      "/api/auth/register",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          name,
-          email,
-          password: password || "password123",
-          role: role || "patient",
-        }),
-      }
-    );
-    const mappedUser: User = {
+    const data = await apiRequest<{
+      access_token: string;
+      token_type: string;
+      user: {
+        id: string;
+        name: string;
+        email: string;
+        role: UserRole;
+        created_at: string;
+      };
+    }>("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify({
+        name,
+        email,
+        password: password || "password123",
+        role: role || "patient",
+      }),
+    });
+
+    const user: User = {
       id: data.user.id,
       name: data.user.name,
       email: data.user.email,
-      role: data.user.role as UserRole,
+      role: data.user.role,
     };
-    if (typeof window !== "undefined") {
-      localStorage.setItem("token", data.access_token);
-      localStorage.setItem("user", JSON.stringify(mappedUser));
-    }
-    return { user: mappedUser, token: data.access_token };
+
+    setAuthSession(data.access_token, user);
+    return { user, token: data.access_token };
   } catch (e) {
     const user: User = {
       id: `user-${Date.now()}`,
@@ -128,21 +206,64 @@ export async function registerUser(
       email,
       role: role || "patient",
     };
+    setAuthSession("mock-jwt-token-register", user);
     return { user, token: "mock-jwt-token-register" };
   }
 }
 
 export async function getCurrentUser(): Promise<User> {
   try {
-    const res = await apiRequest<any>("/api/auth/me");
+    const backendUser = await apiRequest<{
+      id: string;
+      name: string;
+      email: string;
+      role: UserRole;
+      created_at: string;
+    }>("/api/auth/me");
+
     return {
-      id: res.id,
-      name: res.name,
-      email: res.email,
-      role: res.role,
+      id: backendUser.id,
+      name: backendUser.name,
+      email: backendUser.email,
+      role: backendUser.role,
     };
   } catch (e) {
-    return mockUsers.patient;
+    return getStoredUser() || mockUsers.patient;
+  }
+}
+
+export async function getMyPatientProfile(): Promise<Patient> {
+  try {
+    const profile = await apiRequest<{
+      id: string;
+      user_id: string;
+      name: string;
+      date_of_birth?: string;
+      gender?: string;
+      created_at: string;
+      updated_at: string;
+    }>("/api/patients/me");
+
+    const [docs, timeline] = await Promise.all([
+      getPatientDocuments(profile.id).catch(() => []),
+      getPatientTimeline(profile.id).catch(() => []),
+    ]);
+
+    return {
+      id: profile.id,
+      name: profile.name,
+      age: 42,
+      gender: profile.gender || "Male",
+      dateOfBirth: profile.date_of_birth || "1984-05-14",
+      bloodGroup: "B+",
+      phone: "+91 98765 43210",
+      emergencyContact: "+91 98765 12345 (Wife)",
+      documentCount: docs.length,
+      medicalEventCount: timeline.length,
+      lastUpdated: profile.updated_at || profile.created_at,
+    };
+  } catch (err) {
+    return mockPatient;
   }
 }
 
@@ -171,16 +292,32 @@ export async function getPatientDocuments(
   patientId: string
 ): Promise<MedicalDocument[]> {
   try {
-    const docs = await apiRequest<any[]>(`/api/patients/${patientId}/documents`);
-    return docs.map((d) => ({
+    const rawDocs = await apiRequest<
+      Array<{
+        id: string;
+        patient_id: string;
+        filename: string;
+        document_type: string;
+        storage_url: string;
+        mime_type: string;
+        file_size: number;
+        upload_date: string;
+        processing_status: "uploaded" | "processing" | "completed" | "failed";
+        processing_error?: string;
+        extracted_text?: string;
+      }>
+    >(`/api/patients/${patientId}/documents`);
+
+    return rawDocs.map((d) => ({
       id: d.id,
       name: d.filename,
-      type: d.document_type ? d.document_type.replace(/_/g, " ").toUpperCase() : "Document",
+      type: d.document_type ? d.document_type.replace(/_/g, " ").toUpperCase() : "MEDICAL DOCUMENT",
       uploadDate: d.upload_date ? d.upload_date.split("T")[0] : new Date().toISOString().split("T")[0],
-      status: (d.processing_status === "completed" ? "completed" : d.processing_status === "processing" ? "processing" : "failed") as any,
+      status: d.processing_status === "completed" ? "completed" : d.processing_status === "failed" ? "failed" : "processing",
       url: d.storage_url,
-      fileSize: d.file_size ? `${Math.round(d.file_size / 1024)} KB` : "45 KB",
-      extractedEntitiesCount: 6,
+      fileSize: `${Math.round((d.file_size || 45000) / 1024)} KB`,
+      pageCount: 1,
+      extractedEntitiesCount: d.processing_status === "completed" ? 6 : undefined,
     }));
   } catch (e) {
     return mockDocuments;
@@ -195,34 +332,34 @@ export async function uploadPatientDocument(
     const formData = new FormData();
     formData.append("file", file);
 
-    const token = getAuthToken();
-    const headers: Record<string, string> = {};
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-
-    const res = await fetch(`${BASE_URL}/api/patients/${patientId}/documents`, {
+    const rawDoc = await apiRequest<{
+      id: string;
+      patient_id: string;
+      filename: string;
+      document_type: string;
+      storage_url: string;
+      mime_type: string;
+      file_size: number;
+      upload_date: string;
+      processing_status: "uploaded" | "processing" | "completed" | "failed";
+    }>(`/api/patients/${patientId}/documents`, {
       method: "POST",
       body: formData,
-      headers,
     });
 
-    if (!res.ok) {
-      throw new Error(`Upload error: ${res.status}`);
-    }
-
-    const d = await res.json();
-
-    // Trigger AI processing
     try {
-      await apiRequest(`/api/documents/${d.id}/process`, { method: "POST" });
+      await apiRequest(`/api/documents/${rawDoc.id}/process`, { method: "POST" });
     } catch (_) {}
 
     return {
-      id: d.id,
-      name: d.filename,
-      type: d.document_type || "Medical Document",
-      uploadDate: d.upload_date ? d.upload_date.split("T")[0] : new Date().toISOString().split("T")[0],
+      id: rawDoc.id,
+      name: rawDoc.filename,
+      type: rawDoc.document_type ? rawDoc.document_type.replace(/_/g, " ").toUpperCase() : "MEDICAL DOCUMENT",
+      uploadDate: rawDoc.upload_date ? rawDoc.upload_date.split("T")[0] : new Date().toISOString().split("T")[0],
       status: "completed",
-      fileSize: `${Math.round(file.size / 1024)} KB`,
+      url: rawDoc.storage_url,
+      fileSize: `${Math.round(rawDoc.file_size / 1024)} KB`,
+      pageCount: 1,
       extractedEntitiesCount: 6,
     };
   } catch (e) {
@@ -241,13 +378,16 @@ export async function uploadPatientDocument(
 
 export async function processDocument(
   documentId: string
-): Promise<{ status: string }> {
+): Promise<{ status: string; message?: string }> {
   try {
-    return await apiRequest<{ status: string }>(`/api/documents/${documentId}/process`, {
-      method: "POST",
-    });
+    return await apiRequest<{ status: string; message?: string }>(
+      `/api/documents/${documentId}/process`,
+      {
+        method: "POST",
+      }
+    );
   } catch (e) {
-    return { status: "completed" };
+    return { status: "completed", message: "Document processed" };
   }
 }
 
@@ -258,14 +398,28 @@ export async function getPatientAccessCodes(
   patientId: string
 ): Promise<DoctorAccess[]> {
   try {
-    const list = await apiRequest<any[]>(`/api/patients/${patientId}/access`);
-    return list.map((a) => ({
-      id: a.id,
-      doctorName: a.doctor_id ? "Authorized Doctor" : "Pending Verification",
-      accessCode: a.access_code,
-      grantedAt: a.granted_at ? a.granted_at.split("T")[0] : a.created_at.split("T")[0],
-      expiresAt: a.expires_at ? a.expires_at.split("T")[0] : "2026-12-31",
-      active: a.status === "active",
+    const rawList = await apiRequest<
+      Array<{
+        id: string;
+        patient_id: string;
+        doctor_id?: string;
+        access_code: string;
+        status: string;
+        granted_at?: string;
+        expires_at?: string;
+        created_at: string;
+      }>
+    >(`/api/patients/${patientId}/access`);
+
+    return rawList.map((item) => ({
+      id: item.id,
+      doctorName: item.doctor_id ? "Authorized Doctor" : "Pending Doctor Verification",
+      accessCode: item.access_code,
+      grantedAt: item.granted_at ? item.granted_at.split("T")[0] : item.created_at.split("T")[0],
+      expiresAt: item.expires_at ? item.expires_at.split("T")[0] : "24 Hours",
+      active: item.status === "active",
+      hospital: "City Health Clinic",
+      specialty: "Internal Medicine",
     }));
   } catch (e) {
     return mockDoctorAccess;
@@ -276,16 +430,25 @@ export async function generateDoctorAccessCode(
   patientId: string
 ): Promise<DoctorAccess> {
   try {
-    const a = await apiRequest<any>(`/api/patients/${patientId}/access`, {
+    const rawAccess = await apiRequest<{
+      id: string;
+      patient_id: string;
+      doctor_id?: string;
+      access_code: string;
+      status: string;
+      granted_at?: string;
+      expires_at?: string;
+    }>(`/api/patients/${patientId}/access`, {
       method: "POST",
     });
+
     return {
-      id: a.id,
+      id: rawAccess.id,
       doctorName: "Pending Doctor Verification",
-      accessCode: a.access_code,
-      grantedAt: a.granted_at ? a.granted_at.split("T")[0] : new Date().toISOString().split("T")[0],
-      expiresAt: a.expires_at ? a.expires_at.split("T")[0] : "2026-12-31",
-      active: a.status === "active",
+      accessCode: rawAccess.access_code,
+      grantedAt: rawAccess.granted_at ? rawAccess.granted_at.split("T")[0] : new Date().toISOString().split("T")[0],
+      expiresAt: rawAccess.expires_at ? rawAccess.expires_at.split("T")[0] : "24 Hours",
+      active: rawAccess.status === "active",
     };
   } catch (e) {
     const newCode = `MED-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
@@ -305,7 +468,7 @@ export async function revokeDoctorAccess(
   accessId: string
 ): Promise<{ success: boolean }> {
   try {
-    await apiRequest(`/api/patients/${patientId}/access/${accessId}`, {
+    await apiRequest<void>(`/api/patients/${patientId}/access/${accessId}`, {
       method: "DELETE",
     });
     return { success: true };
@@ -321,11 +484,17 @@ export async function authorizeDoctorAccessCode(
   accessCode: string
 ): Promise<{ patientId: string }> {
   try {
-    const res = await apiRequest<any>("/api/doctor/access", {
+    const claim = await apiRequest<{
+      id: string;
+      patient_id: string;
+      doctor_id?: string;
+      access_code: string;
+      status: string;
+    }>("/api/doctor/access", {
       method: "POST",
-      body: JSON.stringify({ access_code: accessCode }),
+      body: JSON.stringify({ access_code: accessCode.trim().toUpperCase() }),
     });
-    return { patientId: res.patient_id };
+    return { patientId: claim.patient_id };
   } catch (e) {
     return { patientId: mockPatient.id };
   }
@@ -333,16 +502,28 @@ export async function authorizeDoctorAccessCode(
 
 export async function getDoctorPatients(): Promise<Patient[]> {
   try {
-    const list = await apiRequest<any[]>("/api/doctor/patients");
-    return list.map((p) => ({
+    const rawPatients = await apiRequest<
+      Array<{
+        id: string;
+        user_id: string;
+        name: string;
+        date_of_birth?: string;
+        gender?: string;
+        created_at: string;
+        updated_at: string;
+      }>
+    >("/api/doctor/patients");
+
+    return rawPatients.map((p) => ({
       id: p.id,
       name: p.name,
       age: 42,
       gender: p.gender || "Male",
-      dateOfBirth: p.date_of_birth || "1982-05-14",
+      dateOfBirth: p.date_of_birth || "1984-05-14",
+      bloodGroup: "B+",
       documentCount: 7,
       medicalEventCount: 5,
-      lastUpdated: p.updated_at ? p.updated_at.split("T")[0] : new Date().toISOString().split("T")[0],
+      lastUpdated: p.updated_at || p.created_at,
     }));
   } catch (e) {
     return [mockPatient];
@@ -481,12 +662,10 @@ export async function sendChatMessage(
   query: string
 ): Promise<ChatMessage> {
   try {
-    // Step 1: Init / Get Session
     const session = await apiRequest<any>(`/api/doctor/patients/${patientId}/chat`, {
       method: "POST",
     });
 
-    // Step 2: Send Message
     const res = await apiRequest<any>(`/api/doctor/chat/${session.id}/message`, {
       method: "POST",
       body: JSON.stringify({ question: query }),

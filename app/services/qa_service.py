@@ -2,6 +2,8 @@ import re
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List
 from app.schemas.chat import QAResponse, ChatEvidenceResponse
+from ai.services.qa_service import QAService as AIQAService
+from ai.schemas.extraction import CanonicalMedicalExtraction, Medication as AIMedication, LabResult as AILabResult, Diagnosis as AIDiagnosis
 
 class BaseQuestionAnswerService(ABC):
     @abstractmethod
@@ -15,6 +17,9 @@ class DefaultQuestionAnswerService(BaseQuestionAnswerService):
         "treatment recommendation", "diagnose", "what dosage should i give",
         "change medication", "prescribe", "predict"
     ]
+
+    def __init__(self):
+        self.ai_qa = AIQAService()
 
     def answer_question(self, question: str, patient_records: Dict[str, Any]) -> QAResponse:
         q_lower = question.lower()
@@ -39,7 +44,8 @@ class DefaultQuestionAnswerService(BaseQuestionAnswerService):
             if medications:
                 med_lines = []
                 for m in medications:
-                    med_str = f"• {m.get('name')} {m.get('dosage', '')} ({m.get('frequency', '')}) - Status: {m.get('status', 'active')}"
+                    dosage = m.get('dosage', '')
+                    med_str = f"• {m.get('name')}{(' ' + dosage) if dosage else ''} ({m.get('frequency', '')}) - Status: {m.get('status', 'active')}"
                     med_lines.append(med_str)
                     if m.get("source_document_id"):
                         evidence_list.append(ChatEvidenceResponse(
@@ -79,7 +85,7 @@ class DefaultQuestionAnswerService(BaseQuestionAnswerService):
                     evidence=evidence_list
                 )
 
-        if "event" in q_lower or "history" in q_lower or "diagnos" in q_lower or "timeline" in q_lower or "consultation" in q_lower:
+        if "event" in q_lower or "history" in q_lower or "diagnos" in q_lower or "timeline" in q_lower or "consultation" in q_lower or "hospital" in q_lower:
             if events:
                 ev_lines = []
                 for e in events:
