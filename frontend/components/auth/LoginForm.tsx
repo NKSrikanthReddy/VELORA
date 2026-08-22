@@ -5,50 +5,70 @@ import { useRouter } from "next/navigation";
 import { UserRole } from "@/types/medical";
 import { Button } from "@/components/ui/Button";
 import { RoleSelector } from "./RoleSelector";
-import { Lock, Mail, ArrowRight, Sparkles } from "lucide-react";
+import { loginUser } from "@/lib/api";
+import { Lock, Mail, ArrowRight, Sparkles, AlertCircle } from "lucide-react";
 import Link from "next/link";
 
 export function LoginForm() {
   const router = useRouter();
   const [role, setRole] = React.useState<UserRole>("patient");
-  const [email, setEmail] = React.useState("rahul.sharma@example.com");
+  const [email, setEmail] = React.useState("patient@demo.com");
   const [password, setPassword] = React.useState("password123");
   const [isLoading, setIsLoading] = React.useState(false);
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
   const handleRoleChange = (newRole: UserRole) => {
     setRole(newRole);
+    setErrorMessage(null);
     if (newRole === "patient") {
-      setEmail("rahul.sharma@example.com");
+      setEmail("patient@demo.com");
     } else {
-      setEmail("dr.anil@cityhealth.org");
+      setEmail("doctor@demo.com");
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
     setIsLoading(true);
 
-    setTimeout(() => {
-      setIsLoading(false);
-      if (role === "patient") {
-        router.push("/patient/dashboard");
-      } else {
+    try {
+      const { user } = await loginUser(email, password);
+      // Route based on authenticated user role returned by backend
+      if (user.role === "doctor") {
         router.push("/doctor/dashboard");
+      } else {
+        router.push("/patient/dashboard");
       }
-    }, 400);
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to login. Please check your credentials.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleQuickDemo = (demoRole: UserRole) => {
+  const handleQuickDemo = async (demoRole: UserRole) => {
+    setErrorMessage(null);
     setIsLoading(true);
     setRole(demoRole);
-    setTimeout(() => {
-      setIsLoading(false);
-      if (demoRole === "patient") {
-        router.push("/patient/dashboard");
-      } else {
+
+    const demoEmail = demoRole === "patient" ? "patient@demo.com" : "doctor@demo.com";
+    setEmail(demoEmail);
+    setPassword("password123");
+
+    try {
+      const { user } = await loginUser(demoEmail, "password123");
+      if (user.role === "doctor" || demoRole === "doctor") {
         router.push("/doctor/dashboard");
+      } else {
+        router.push("/patient/dashboard");
       }
-    }, 250);
+    } catch (err: any) {
+      // In case demo user needs to be registered first
+      setErrorMessage("Demo user not found on backend. Please register or use form above.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -86,6 +106,13 @@ export function LoginForm() {
         </div>
       </div>
 
+      {errorMessage && (
+        <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl flex items-center gap-2 animate-in fade-in">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider text-[11px]">
@@ -116,9 +143,6 @@ export function LoginForm() {
             <label className="block text-xs font-medium text-slate-700">
               Password
             </label>
-            <span className="text-[11px] text-[#0F9D94] hover:underline cursor-pointer font-medium">
-              Forgot password?
-            </span>
           </div>
           <div className="relative">
             <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />

@@ -1,9 +1,23 @@
+"use client";
+
 import * as React from "react";
 import { PatientSidebar } from "@/components/patient/PatientSidebar";
 import { DocumentUpload } from "@/components/patient/DocumentUpload";
+import { getMyPatientProfile, USE_MOCK } from "@/lib/api";
+import { Patient } from "@/types/medical";
+import { mockPatient } from "@/data/mockData";
 import { ShieldCheck, Info } from "lucide-react";
 
 export default function PatientUploadPage() {
+  const [patient, setPatient] = React.useState<Patient>(mockPatient);
+
+  React.useEffect(() => {
+    if (USE_MOCK) return;
+    getMyPatientProfile()
+      .then((p) => setPatient(p))
+      .catch((err) => console.warn("Using fallback patient id:", err));
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex">
       {/* Sidebar */}
@@ -33,7 +47,7 @@ export default function PatientUploadPage() {
             </div>
           </div>
 
-          <DocumentUpload />
+          <DocumentUpload patientId={patient.id} />
 
           {/* Privacy Note */}
           <div className="flex items-center justify-center gap-2 text-xs text-slate-400 py-2">

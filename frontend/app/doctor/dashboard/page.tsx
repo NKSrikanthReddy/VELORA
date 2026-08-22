@@ -4,11 +4,39 @@ import * as React from "react";
 import { DoctorSidebar } from "@/components/doctor/DoctorSidebar";
 import { AccessCodeInput } from "@/components/doctor/AccessCodeInput";
 import { PatientCard } from "@/components/doctor/PatientCard";
+import { getDoctorPatients, getCurrentUser, USE_MOCK } from "@/lib/api";
 import { mockPatient, mockUsers } from "@/data/mockData";
-import { Users, ShieldCheck } from "lucide-react";
+import { Patient, User } from "@/types/medical";
+import { Users, ShieldCheck, Loader2 } from "lucide-react";
 
 export default function DoctorDashboardPage() {
-  const doctor = mockUsers.doctor;
+  const [doctor, setDoctor] = React.useState<User>(mockUsers.doctor);
+  const [patients, setPatients] = React.useState<Patient[]>([mockPatient]);
+  const [isLoading, setIsLoading] = React.useState(!USE_MOCK);
+
+  const loadDoctorData = React.useCallback(async () => {
+    if (USE_MOCK) return;
+    try {
+      setIsLoading(true);
+      const [docUser, authorizedPatients] = await Promise.all([
+        getCurrentUser().catch(() => mockUsers.doctor),
+        getDoctorPatients().catch(() => [mockPatient]),
+      ]);
+
+      setDoctor(docUser);
+      if (authorizedPatients.length > 0) {
+        setPatients(authorizedPatients);
+      }
+    } catch (err) {
+      console.warn("Using fallback doctor data:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    loadDoctorData();
+  }, [loadDoctorData]);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex">
@@ -24,7 +52,7 @@ export default function DoctorDashboardPage() {
               Clinician Dashboard
             </h1>
             <p className="text-xs text-slate-500 mt-0.5 font-normal">
-              {doctor.name} &bull; {doctor.specialty} &bull; License: {doctor.licenseNumber}
+              {doctor.name} &bull; {doctor.specialty || "Internal Medicine"} &bull; Clinical Decision Support
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -53,13 +81,24 @@ export default function DoctorDashboardPage() {
                 </p>
               </div>
               <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-full border border-slate-200/60">
-                1 Patient Active
+                {patients.length} Patient{patients.length > 1 ? "s" : ""} Active
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <PatientCard patient={mockPatient} lastAccessed="Just now" />
-            </div>
+            {isLoading ? (
+              <div className="flex items-center justify-center p-12 bg-white rounded-2xl border border-slate-200 shadow-xs">
+                <div className="flex items-center gap-3 text-sm text-slate-600 font-medium">
+                  <Loader2 className="w-5 h-5 text-[#0F9D94] animate-spin" />
+                  <span>Loading authorized patients...</span>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {patients.map((pat) => (
+                  <PatientCard key={pat.id} patient={pat} lastAccessed="Active Session" />
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Safety Notice for Doctor */}

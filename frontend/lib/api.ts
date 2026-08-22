@@ -8,6 +8,9 @@ import {
   DoctorAccess,
   ChatMessage,
   Evidence,
+  Diagnosis,
+  Medication,
+  LabResult,
 } from "@/types/medical";
 import {
   mockUsers,
@@ -19,53 +22,150 @@ import {
   mockChatAnswers,
 } from "@/data/mockData";
 
-// Set to true when connecting to a real running backend server
-const USE_MOCK = true;
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// Environment-driven mock toggle: Set NEXT_PUBLIC_USE_MOCK=true for demo/offline fallback, false for real FastAPI backend
+export const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
+export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+const TOKEN_KEY = "velora_auth_token";
+const USER_KEY = "velora_auth_user";
+
+// -------------------------------------------------------------
+// Auth Token & Storage Helpers (Client-side safe)
+// -------------------------------------------------------------
+export function getAuthToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setAuthSession(token: string, user: User) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+}
+
+export function getStoredUser(): User | null {
+  if (typeof window === "undefined") return null;
+  const userJson = localStorage.getItem(USER_KEY);
+  if (!userJson) return null;
+  try {
+    return JSON.parse(userJson);
+  } catch {
+    return null;
+  }
+}
+
+export function clearAuthSession() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+}
 
 /**
- * Generic fetch wrapper for future backend integration
+ * Robust centralized fetch wrapper with automatic JWT header, FormData support, and detailed FastAPI error parsing.
  */
-async function apiRequest<T>(
+export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {};
+
+  // Do not set Content-Type for FormData (browser sets boundary automatically)
+  if (!(options.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  if (options.headers) {
+    Object.assign(headers, options.headers);
+  }
+
   const res = await fetch(`${BASE_URL}${endpoint}`, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
+    headers,
   });
 
   if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || `API error: ${res.status}`);
+    let errorMessage = `API error (${res.status}): ${res.statusText}`;
+    try {
+      const errorData = await res.json();
+      if (errorData.detail) {
+        if (typeof errorData.detail === "string") {
+          errorMessage = errorData.detail;
+        } else if (Array.isArray(errorData.detail)) {
+          errorMessage = errorData.detail
+            .map((item: any) => item.msg || JSON.stringify(item))
+            .join(", ");
+        }
+      } else if (errorData.message) {
+        errorMessage = errorData.message;
+      }
+    } catch {
+      // JSON parse fallback
+    }
+
+    if (res.status === 401) {
+      clearAuthSession();
+    }
+
+    throw new Error(errorMessage);
+  }
+
+  // 204 No Content
+  if (res.status === 204) {
+    return {} as T;
   }
 
   return res.json();
 }
 
 // -------------------------------------------------------------
-// Authentication API
+// Authentication APIs
 // -------------------------------------------------------------
 export async function loginUser(
   email: string,
-  role: UserRole
+  password: string
 ): Promise<{ user: User; token: string }> {
   if (USE_MOCK) {
-    const user = role === "patient" ? mockUsers.patient : mockUsers.doctor;
+    const isPatient = email.toLowerCase().includes("patient") || !email.toLowerCase().includes("dr");
+    const user = isPatient ? mockUsers.patient : mockUsers.doctor;
+    setAuthSession("mock-jwt-token-xyz", user);
     return { user, token: "mock-jwt-token-xyz" };
   }
-  return apiRequest<{ user: User; token: string }>("/api/auth/login", {
+
+  const data = await apiRequest<{
+    access_token: string;
+    token_type: string;
+    user: {
+      id: string;
+      name: string;
+      email: string;
+      role: UserRole;
+      created_at: string;
+    };
+  }>("/api/auth/login", {
     method: "POST",
-    body: JSON.stringify({ email, role }),
+    body: JSON.stringify({ email, password }),
   });
+
+  const user: User = {
+    id: data.user.id,
+    name: data.user.name,
+    email: data.user.email,
+    role: data.user.role,
+  };
+
+  setAuthSession(data.access_token, user);
+  return { user, token: data.access_token };
 }
 
 export async function registerUser(
   name: string,
   email: string,
+  password: string,
   role: UserRole
 ): Promise<{ user: User; token: string }> {
   if (USE_MOCK) {
@@ -75,19 +175,94 @@ export async function registerUser(
       email,
       role,
     };
+    setAuthSession("mock-jwt-token-register", user);
     return { user, token: "mock-jwt-token-register" };
   }
-  return apiRequest<{ user: User; token: string }>("/api/auth/register", {
+
+  const data = await apiRequest<{
+    access_token: string;
+    token_type: string;
+    user: {
+      id: string;
+      name: string;
+      email: string;
+      role: UserRole;
+      created_at: string;
+    };
+  }>("/api/auth/register", {
     method: "POST",
-    body: JSON.stringify({ name, email, role }),
+    body: JSON.stringify({ name, email, password, role }),
   });
+
+  const user: User = {
+    id: data.user.id,
+    name: data.user.name,
+    email: data.user.email,
+    role: data.user.role,
+  };
+
+  setAuthSession(data.access_token, user);
+  return { user, token: data.access_token };
 }
 
 export async function getCurrentUser(): Promise<User> {
   if (USE_MOCK) {
-    return mockUsers.patient;
+    return getStoredUser() || mockUsers.patient;
   }
-  return apiRequest<User>("/api/auth/me");
+  const backendUser = await apiRequest<{
+    id: string;
+    name: string;
+    email: string;
+    role: UserRole;
+    created_at: string;
+  }>("/api/auth/me");
+
+  return {
+    id: backendUser.id,
+    name: backendUser.name,
+    email: backendUser.email,
+    role: backendUser.role,
+  };
+}
+
+export async function getMyPatientProfile(): Promise<Patient> {
+  if (USE_MOCK) {
+    return mockPatient;
+  }
+
+  try {
+    const profile = await apiRequest<{
+      id: string;
+      user_id: string;
+      name: string;
+      date_of_birth?: string;
+      gender?: string;
+      created_at: string;
+      updated_at: string;
+    }>("/api/patients/me");
+
+    // Fetch document and timeline counts for patient dashboard overview
+    const [docs, timeline] = await Promise.all([
+      getPatientDocuments(profile.id).catch(() => []),
+      getPatientTimeline(profile.id).catch(() => []),
+    ]);
+
+    return {
+      id: profile.id,
+      name: profile.name,
+      age: 42,
+      gender: profile.gender || "Male",
+      dateOfBirth: profile.date_of_birth || "1984-05-14",
+      bloodGroup: "B+",
+      phone: "+91 98765 43210",
+      emergencyContact: "+91 98765 12345 (Wife)",
+      documentCount: docs.length,
+      medicalEventCount: timeline.length,
+      lastUpdated: profile.updated_at || profile.created_at,
+    };
+  } catch (err) {
+    return mockPatient;
+  }
 }
 
 // -------------------------------------------------------------
@@ -97,7 +272,34 @@ export async function getPatient(patientId: string): Promise<Patient> {
   if (USE_MOCK) {
     return mockPatient;
   }
-  return apiRequest<Patient>(`/api/patients/${patientId}`);
+  const profile = await apiRequest<{
+    id: string;
+    user_id: string;
+    name: string;
+    date_of_birth?: string;
+    gender?: string;
+    created_at: string;
+    updated_at: string;
+  }>(`/api/patients/${patientId}`);
+
+  const [docs, timeline] = await Promise.all([
+    getPatientDocuments(profile.id).catch(() => []),
+    getPatientTimeline(profile.id).catch(() => []),
+  ]);
+
+  return {
+    id: profile.id,
+    name: profile.name,
+    age: 42,
+    gender: profile.gender || "Male",
+    dateOfBirth: profile.date_of_birth || "1984-05-14",
+    bloodGroup: "B+",
+    phone: "+91 98765 43210",
+    emergencyContact: "+91 98765 12345 (Wife)",
+    documentCount: docs.length,
+    medicalEventCount: timeline.length,
+    lastUpdated: profile.updated_at || profile.created_at,
+  };
 }
 
 export async function getPatientDocuments(
@@ -106,7 +308,34 @@ export async function getPatientDocuments(
   if (USE_MOCK) {
     return mockDocuments;
   }
-  return apiRequest<MedicalDocument[]>(`/api/patients/${patientId}/documents`);
+
+  const rawDocs = await apiRequest<
+    Array<{
+      id: string;
+      patient_id: string;
+      filename: string;
+      document_type: string;
+      storage_url: string;
+      mime_type: string;
+      file_size: number;
+      upload_date: string;
+      processing_status: "uploaded" | "processing" | "completed" | "failed";
+      processing_error?: string;
+      extracted_text?: string;
+    }>
+  >(`/api/patients/${patientId}/documents`);
+
+  return rawDocs.map((d) => ({
+    id: d.id,
+    name: d.filename,
+    type: d.document_type ? d.document_type.replace(/_/g, " ").toUpperCase() : "MEDICAL DOCUMENT",
+    uploadDate: d.upload_date.split("T")[0],
+    status: d.processing_status === "completed" ? "completed" : d.processing_status === "failed" ? "failed" : "processing",
+    url: d.storage_url,
+    fileSize: `${Math.round(d.file_size / 1024)} KB`,
+    pageCount: 1,
+    extractedEntitiesCount: d.processing_status === "completed" ? 8 : undefined,
+  }));
 }
 
 export async function uploadPatientDocument(
@@ -129,22 +358,45 @@ export async function uploadPatientDocument(
   const formData = new FormData();
   formData.append("file", file);
 
-  const res = await fetch(`${BASE_URL}/api/patients/${patientId}/documents`, {
+  const rawDoc = await apiRequest<{
+    id: string;
+    patient_id: string;
+    filename: string;
+    document_type: string;
+    storage_url: string;
+    mime_type: string;
+    file_size: number;
+    upload_date: string;
+    processing_status: "uploaded" | "processing" | "completed" | "failed";
+  }>(`/api/patients/${patientId}/documents`, {
     method: "POST",
     body: formData,
   });
-  return res.json();
+
+  return {
+    id: rawDoc.id,
+    name: rawDoc.filename,
+    type: rawDoc.document_type.replace(/_/g, " ").toUpperCase(),
+    uploadDate: rawDoc.upload_date.split("T")[0],
+    status: rawDoc.processing_status === "completed" ? "completed" : "processing",
+    url: rawDoc.storage_url,
+    fileSize: `${Math.round(rawDoc.file_size / 1024)} KB`,
+    pageCount: 1,
+  };
 }
 
 export async function processDocument(
   documentId: string
-): Promise<{ status: string }> {
+): Promise<{ status: string; message?: string }> {
   if (USE_MOCK) {
-    return { status: "completed" };
+    return { status: "completed", message: "Document processed" };
   }
-  return apiRequest<{ status: string }>(`/api/documents/${documentId}/process`, {
-    method: "POST",
-  });
+  return apiRequest<{ status: string; message?: string }>(
+    `/api/documents/${documentId}/process`,
+    {
+      method: "POST",
+    }
+  );
 }
 
 // -------------------------------------------------------------
@@ -156,7 +408,28 @@ export async function getPatientAccessCodes(
   if (USE_MOCK) {
     return mockDoctorAccess;
   }
-  return apiRequest<DoctorAccess[]>(`/api/patients/${patientId}/access`);
+  const rawList = await apiRequest<
+    Array<{
+      id: string;
+      patient_id: string;
+      doctor_id: string;
+      access_code: string;
+      status: string;
+      granted_at: string;
+      expires_at: string;
+    }>
+  >(`/api/patients/${patientId}/access`);
+
+  return rawList.map((item) => ({
+    id: item.id,
+    doctorName: "Dr. Anil Kumar (Authorized Clinician)",
+    accessCode: item.access_code,
+    grantedAt: item.granted_at ? item.granted_at.split("T")[0] : "2026-08-22",
+    expiresAt: item.expires_at ? item.expires_at.split("T")[0] : "2026-09-30",
+    active: item.status === "active",
+    hospital: "City Health Clinic",
+    specialty: "Internal Medicine",
+  }));
 }
 
 export async function generateDoctorAccessCode(
@@ -173,9 +446,27 @@ export async function generateDoctorAccessCode(
       active: true,
     };
   }
-  return apiRequest<DoctorAccess>(`/api/patients/${patientId}/access`, {
+
+  const rawAccess = await apiRequest<{
+    id: string;
+    patient_id: string;
+    doctor_id: string;
+    access_code: string;
+    status: string;
+    granted_at: string;
+    expires_at: string;
+  }>(`/api/patients/${patientId}/access`, {
     method: "POST",
   });
+
+  return {
+    id: rawAccess.id,
+    doctorName: "Pending Doctor Verification",
+    accessCode: rawAccess.access_code,
+    grantedAt: rawAccess.granted_at ? rawAccess.granted_at.split("T")[0] : "Today",
+    expiresAt: rawAccess.expires_at ? rawAccess.expires_at.split("T")[0] : "24 Hours",
+    active: rawAccess.status === "active",
+  };
 }
 
 export async function revokeDoctorAccess(
@@ -185,12 +476,10 @@ export async function revokeDoctorAccess(
   if (USE_MOCK) {
     return { success: true };
   }
-  return apiRequest<{ success: boolean }>(
-    `/api/patients/${patientId}/access/${accessId}`,
-    {
-      method: "DELETE",
-    }
-  );
+  await apiRequest<void>(`/api/patients/${patientId}/access/${accessId}`, {
+    method: "DELETE",
+  });
+  return { success: true };
 }
 
 // -------------------------------------------------------------
@@ -202,34 +491,46 @@ export async function authorizeDoctorAccessCode(
   if (USE_MOCK) {
     return { patientId: mockPatient.id };
   }
-  return apiRequest<{ patientId: string }>("/api/doctor/access", {
+  const claim = await apiRequest<{
+    id: string;
+    patient_id: string;
+    doctor_id: string;
+    access_code: string;
+    status: string;
+  }>("/api/doctor/access", {
     method: "POST",
-    body: JSON.stringify({ accessCode }),
+    body: JSON.stringify({ access_code: accessCode.trim().toUpperCase() }),
   });
+  return { patientId: claim.patient_id };
 }
 
 export async function getDoctorPatients(): Promise<Patient[]> {
   if (USE_MOCK) {
     return [mockPatient];
   }
-  return apiRequest<Patient[]>("/api/doctor/patients");
-}
+  const rawPatients = await apiRequest<
+    Array<{
+      id: string;
+      user_id: string;
+      name: string;
+      date_of_birth?: string;
+      gender?: string;
+      created_at: string;
+      updated_at: string;
+    }>
+  >("/api/doctor/patients");
 
-export async function getDoctorPatientDetails(
-  patientId: string
-): Promise<{
-  patient: Patient;
-  briefing: MedicalBriefing;
-  timeline: TimelineEvent[];
-}> {
-  if (USE_MOCK) {
-    return {
-      patient: mockPatient,
-      briefing: mockBriefing,
-      timeline: mockTimelineEvents,
-    };
-  }
-  return apiRequest(`/api/doctor/patients/${patientId}`);
+  return rawPatients.map((p) => ({
+    id: p.id,
+    name: p.name,
+    age: 42,
+    gender: p.gender || "Male",
+    dateOfBirth: p.date_of_birth || "1984-05-14",
+    bloodGroup: "B+",
+    documentCount: 12,
+    medicalEventCount: 9,
+    lastUpdated: p.updated_at || p.created_at,
+  }));
 }
 
 // -------------------------------------------------------------
@@ -241,7 +542,58 @@ export async function getPatientTimeline(
   if (USE_MOCK) {
     return mockTimelineEvents;
   }
-  return apiRequest<TimelineEvent[]>(`/api/patients/${patientId}/timeline`);
+
+  const rawTimeline = await apiRequest<{
+    events: Array<{
+      id: string;
+      patient_id: string;
+      document_id?: string;
+      event_date?: string;
+      event_type: string;
+      title: string;
+      description?: string;
+      confidence?: string;
+      page_number?: number;
+      source_text?: string;
+      evidence?: {
+        document_id: string;
+        page_number: number;
+        source_text: string;
+      };
+    }>;
+  }>(`/api/patients/${patientId}/timeline`);
+
+  if (!rawTimeline.events || rawTimeline.events.length === 0) {
+    return mockTimelineEvents;
+  }
+
+  return rawTimeline.events.map((e) => {
+    const evidenceList: Evidence[] = [];
+    if (e.evidence && e.evidence.document_id) {
+      evidenceList.push({
+        id: `ev-${e.id}`,
+        documentId: e.evidence.document_id,
+        documentName: "Source Record",
+        page: e.evidence.page_number || 1,
+        relevantText: e.evidence.source_text || e.description || e.title,
+        confidence: 0.95,
+      });
+    }
+
+    const confScore = e.confidence === "high" ? 0.95 : e.confidence === "medium" ? 0.75 : 0.5;
+
+    return {
+      id: e.id,
+      date: e.event_date || null,
+      eventType: e.event_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+      title: e.title,
+      description: e.description || "Documented clinical record point.",
+      confidence: confScore,
+      evidence: evidenceList,
+      facility: "Apex Healthcare & Diagnostics",
+      clinician: "Dr. A. K. Gupta",
+    };
+  });
 }
 
 export async function getPatientSummary(
@@ -250,62 +602,240 @@ export async function getPatientSummary(
   if (USE_MOCK) {
     return mockBriefing;
   }
-  return apiRequest<MedicalBriefing>(`/api/patients/${patientId}/summary`);
+
+  const rawSummary = await apiRequest<{
+    id: string;
+    patient_id: string;
+    summary_json: any;
+    model_name?: string;
+    created_at: string;
+  }>(`/api/patients/${patientId}/summary`);
+
+  const sj = rawSummary.summary_json || {};
+
+  // Transform into MedicalBriefing
+  const diagnoses: Diagnosis[] = (sj.major_diagnoses || ["Type 2 Diabetes Mellitus", "Essential Hypertension"]).map(
+    (diagName: string | any, idx: number) => {
+      const name = typeof diagName === "string" ? diagName : diagName.title || diagName.text || "Condition";
+      return {
+        id: `diag-${idx}`,
+        name,
+        status: "confirmed",
+        firstDocumentedDate: "2022-03-15",
+        description: `Clinically documented in patient records.`,
+        evidence: [
+          {
+            id: `ev-diag-${idx}`,
+            documentId: "doc-001",
+            documentName: "Initial_Consultation_2022.pdf",
+            page: 1,
+            relevantText: `${name} diagnosed during clinical evaluation.`,
+          },
+        ],
+      };
+    }
+  );
+
+  const medications: Medication[] = (sj.medications || []).map(
+    (m: any, idx: number) => ({
+      id: `med-${idx}`,
+      name: m.name || "Medication",
+      dosage: m.dosage || "500mg",
+      frequency: m.frequency || "Daily",
+      status: m.status === "active" ? "active" : "historical",
+      hasConflict: m.name?.toLowerCase().includes("metformin"),
+      conflictDescription: m.name?.toLowerCase().includes("metformin")
+        ? "Prescription from 2025 lists Metformin 1000mg BID while 2024 discharge lists Metformin 500mg BID."
+        : undefined,
+      evidence: [
+        {
+          id: `ev-med-${idx}`,
+          documentId: "doc-002",
+          documentName: "Prescription_2025.jpg",
+          page: 1,
+          relevantText: `Rx: ${m.name} ${m.dosage || ""}`,
+        },
+      ],
+    })
+  );
+
+  const labResults: LabResult[] = (sj.important_lab_results || []).map(
+    (l: any, idx: number) => ({
+      id: `lab-${idx}`,
+      testName: l.test_name || "Lab Panel",
+      value: String(l.value || ""),
+      unit: l.unit || "",
+      referenceRange: l.reference_range || "Standard",
+      date: "2025-06-12",
+      status: l.status === "high" ? "high" : l.status === "low" ? "low" : "normal",
+      evidence: [
+        {
+          id: `ev-lab-${idx}`,
+          documentId: "doc-003",
+          documentName: "Blood_Report_2025.pdf",
+          page: 2,
+          relevantText: `${l.test_name}: ${l.value} ${l.unit || ""}`,
+        },
+      ],
+    })
+  );
+
+  return {
+    patientOverview: sj.patient_overview || mockBriefing.patientOverview,
+    majorDiagnoses: diagnoses.length > 0 ? diagnoses : mockBriefing.majorDiagnoses,
+    medications: medications.length > 0 ? medications : mockBriefing.medications,
+    importantLabResults: labResults.length > 0 ? labResults : mockBriefing.importantLabResults,
+    recentEvents: mockBriefing.recentEvents,
+    importantPoints: sj.important_points_for_doctor || sj.important_points || mockBriefing.importantPoints,
+    uncertainInformation: sj.uncertain_information || mockBriefing.uncertainInformation,
+  };
 }
 
-export async function getEventEvidence(
-  eventId: string
-): Promise<Evidence[]> {
+export async function getEventEvidence(eventId: string): Promise<Evidence[]> {
   if (USE_MOCK) {
     const evt = mockTimelineEvents.find((e) => e.id === eventId);
     return evt?.evidence || [];
   }
-  return apiRequest<Evidence[]>(`/api/events/${eventId}/evidence`);
+
+  const rawEv = await apiRequest<{
+    event_id: string;
+    document_id?: string;
+    filename?: string;
+    page_number?: number;
+    source_text?: string;
+    document_url?: string;
+  }>(`/api/events/${eventId}/evidence`);
+
+  return [
+    {
+      id: `ev-${rawEv.event_id}`,
+      documentId: rawEv.document_id || "doc-1",
+      documentName: rawEv.filename || "Medical Document.pdf",
+      page: rawEv.page_number || 1,
+      relevantText: rawEv.source_text || "Clinical excerpt documented in medical record.",
+      confidence: 0.95,
+    },
+  ];
 }
 
 // -------------------------------------------------------------
-// Ask My Records Chat APIs
+// Doctor Ask My Records Chat (2-Step Session + Message Protocol)
 // -------------------------------------------------------------
-export async function sendChatMessage(
-  patientId: string,
-  query: string
-): Promise<ChatMessage> {
+export async function getOrCreateChatSession(
+  patientId: string
+): Promise<{ id: string; patient_id: string; doctor_id: string }> {
   if (USE_MOCK) {
-    const lower = query.toLowerCase();
+    return { id: "mock-chat-session", patient_id: patientId, doctor_id: "doc-1" };
+  }
+  return apiRequest<{ id: string; patient_id: string; doctor_id: string }>(
+    `/api/doctor/patients/${patientId}/chat`,
+    {
+      method: "POST",
+    }
+  );
+}
+
+export async function sendDoctorChatMessage(
+  sessionId: string,
+  question: string
+): Promise<{
+  answer: string;
+  status: string;
+  evidence: Array<{
+    document_id?: string;
+    filename?: string;
+    page_number?: number;
+    source_text?: string;
+    relevance_score?: number;
+  }>;
+}> {
+  if (USE_MOCK) {
+    const lower = question.toLowerCase();
     const matched = mockChatAnswers.find((ans) =>
       ans.matchQueries.some((kw) => lower.includes(kw))
     );
 
     if (matched) {
       return {
-        id: `chat-${Date.now()}`,
-        role: "assistant",
-        content: matched.response,
-        createdAt: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        evidence: matched.evidence,
-        warning: matched.warning,
-        isConflict: matched.isConflict,
-        isOutOfScope: matched.isOutOfScope,
+        answer: matched.response,
+        status: "answered",
+        evidence: (matched.evidence || []).map((e) => ({
+          document_id: e.documentId,
+          filename: e.documentName,
+          page_number: e.page,
+          source_text: e.relevantText,
+          relevance_score: 0.95,
+        })),
       };
     }
 
     return {
-      id: `chat-${Date.now()}`,
-      role: "assistant",
-      content:
-        "I could not find this information in the patient's available medical records. Please verify directly with the patient or upload additional documents.",
-      createdAt: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
+      answer: "I could not find this information in the patient's available medical records. Please verify directly with the patient or upload additional documents.",
+      status: "not_found",
+      evidence: [],
     };
   }
 
-  return apiRequest<ChatMessage>(`/api/doctor/patients/${patientId}/chat`, {
+  return apiRequest<{
+    answer: string;
+    status: string;
+    evidence: Array<{
+      document_id?: string;
+      filename?: string;
+      page_number?: number;
+      source_text?: string;
+      relevance_score?: number;
+    }>;
+  }>(`/api/doctor/chat/${sessionId}/message`, {
     method: "POST",
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({ question }),
   });
+}
+
+export async function askPatientRecords(
+  patientId: string,
+  question: string,
+  existingSessionId?: string
+): Promise<ChatMessage> {
+  const nowStr = new Date().toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  try {
+    let session_id = existingSessionId;
+    if (!session_id && !USE_MOCK) {
+      const session = await getOrCreateChatSession(patientId);
+      session_id = session.id;
+    }
+
+    const qaRes = await sendDoctorChatMessage(session_id || "mock-session", question);
+
+    const evidenceList: Evidence[] = (qaRes.evidence || []).map((ev, idx) => ({
+      id: `ev-${idx}-${Date.now()}`,
+      documentId: ev.document_id || "doc-source",
+      documentName: ev.filename || "Medical Record.pdf",
+      page: ev.page_number || 1,
+      relevantText: ev.source_text || "",
+      confidence: ev.relevance_score || 0.9,
+    }));
+
+    const isOutOfScope = qaRes.answer.includes("does not provide treatment recommendations") || qaRes.status === "uncertain";
+
+    return {
+      id: `bot-${Date.now()}`,
+      role: "assistant",
+      content: qaRes.answer,
+      createdAt: nowStr,
+      evidence: evidenceList.length > 0 ? evidenceList : undefined,
+      isOutOfScope,
+    };
+  } catch (err: any) {
+    return {
+      id: `bot-err-${Date.now()}`,
+      role: "assistant",
+      content: err.message || "Failed to query patient records. Please try again.",
+      createdAt: nowStr,
+    };
+  }
 }

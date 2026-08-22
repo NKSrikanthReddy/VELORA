@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { UserRole } from "@/types/medical";
 import { Button } from "@/components/ui/Button";
 import { RoleSelector } from "./RoleSelector";
-import { Lock, Mail, User as UserIcon } from "lucide-react";
+import { registerUser } from "@/lib/api";
+import { Lock, Mail, User as UserIcon, AlertCircle } from "lucide-react";
 import Link from "next/link";
 
 export function RegisterForm() {
@@ -15,23 +16,42 @@ export function RegisterForm() {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
+
+    if (password.length < 6) {
+      setErrorMessage("Password must be at least 6 characters long.");
+      return;
+    }
+
     setIsLoading(true);
 
-    setTimeout(() => {
-      setIsLoading(false);
-      if (role === "patient") {
-        router.push("/patient/dashboard");
-      } else {
+    try {
+      const { user } = await registerUser(fullName, email, password, role);
+      if (user.role === "doctor" || role === "doctor") {
         router.push("/doctor/dashboard");
+      } else {
+        router.push("/patient/dashboard");
       }
-    }, 400);
+    } catch (err: any) {
+      setErrorMessage(err.message || "Registration failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="w-full max-w-md space-y-6">
+      {errorMessage && (
+        <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl flex items-center gap-2 animate-in fade-in">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider text-[11px]">
@@ -86,7 +106,7 @@ export function RegisterForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0F9D94] focus:bg-white transition-all text-[#0F172A]"
-              placeholder="Minimum 8 characters"
+              placeholder="Minimum 6 characters"
             />
           </div>
         </div>

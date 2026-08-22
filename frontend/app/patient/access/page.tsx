@@ -4,34 +4,80 @@ import * as React from "react";
 import { PatientSidebar } from "@/components/patient/PatientSidebar";
 import { AccessCodeCard } from "@/components/patient/AccessCodeCard";
 import { ActiveAccessList } from "@/components/patient/ActiveAccessList";
-import { mockDoctorAccess } from "@/data/mockData";
-import { DoctorAccess } from "@/types/medical";
-import { ShieldCheck, Info } from "lucide-react";
+import {
+  getMyPatientProfile,
+  getPatientAccessCodes,
+  generateDoctorAccessCode,
+  revokeDoctorAccess,
+  USE_MOCK,
+} from "@/lib/api";
+import { mockDoctorAccess, mockPatient } from "@/data/mockData";
+import { DoctorAccess, Patient } from "@/types/medical";
+import { ShieldCheck, Info, Loader2 } from "lucide-react";
 
 export default function PatientAccessPage() {
+  const [patient, setPatient] = React.useState<Patient>(mockPatient);
   const [accessList, setAccessList] = React.useState<DoctorAccess[]>(mockDoctorAccess);
   const [currentCode, setCurrentCode] = React.useState("MED-7K29X");
   const [expiresAt, setExpiresAt] = React.useState("30 August 2026");
+  const [isLoading, setIsLoading] = React.useState(!USE_MOCK);
 
-  const handleGenerateNewCode = () => {
-    const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
-    let newCode = "MED-";
-    for (let i = 0; i < 5; i++) {
-      newCode += chars.charAt(Math.floor(Math.random() * chars.length));
+  const loadAccessData = React.useCallback(async () => {
+    if (USE_MOCK) return;
+    try {
+      setIsLoading(true);
+      const pat = await getMyPatientProfile();
+      setPatient(pat);
+
+      const codes = await getPatientAccessCodes(pat.id);
+      if (codes && codes.length > 0) {
+        setAccessList(codes);
+        const active = codes.find((c) => c.active);
+        if (active) {
+          setCurrentCode(active.accessCode);
+          setExpiresAt(active.expiresAt);
+        }
+      }
+    } catch (err) {
+      console.warn("Using fallback access codes:", err);
+    } finally {
+      setIsLoading(false);
     }
-    setCurrentCode(newCode);
-    setExpiresAt("30 September 2026");
+  }, []);
+
+  React.useEffect(() => {
+    loadAccessData();
+  }, [loadAccessData]);
+
+  const handleGenerateNewCode = async () => {
+    try {
+      const newAccess = await generateDoctorAccessCode(patient.id);
+      setCurrentCode(newAccess.accessCode);
+      setExpiresAt(newAccess.expiresAt);
+      setAccessList((prev) => [newAccess, ...prev]);
+    } catch (err: any) {
+      alert(`Failed to generate code: ${err.message}`);
+    }
   };
 
-  const handleRevokeAccess = (accessId: string) => {
-    setAccessList((prev) =>
-      prev.map((item) =>
-        item.id === accessId ? { ...item, active: false } : item
-      )
-    );
+  const handleRevokeAccess = async (accessId: string) => {
+    try {
+      await revokeDoctorAccess(patient.id, accessId);
+      setAccessList((prev) =>
+        prev.map((item) =>
+          item.id === accessId ? { ...item, active: false } : item
+        )
+      );
+    } catch (err: any) {
+      alert(`Failed to revoke access: ${err.message}`);
+    }
   };
 
-  const handleRevokeAll = () => {
+  const handleRevokeAll = async () => {
+    const activeOnes = accessList.filter((a) => a.active);
+    for (const a of activeOnes) {
+      await revokeDoctorAccess(patient.id, a.id).catch(() => {});
+    }
     setAccessList((prev) => prev.map((item) => ({ ...item, active: false })));
     setCurrentCode("");
   };
@@ -65,17 +111,28 @@ export default function PatientAccessPage() {
             </div>
           </div>
 
-          <AccessCodeCard
-            accessCode={currentCode}
-            expiresAt={expiresAt}
-            onGenerateNewCode={handleGenerateNewCode}
-            onRevokeAll={handleRevokeAll}
-          />
+          {isLoading ? (
+            <div className="flex items-center justify-center p-12 bg-white rounded-2xl border border-slate-200 shadow-xs">
+              <div className="flex items-center gap-3 text-sm text-slate-600 font-medium">
+                <Loader2 className="w-5 h-5 text-[#0F9D94] animate-spin" />
+                <span>Loading access control records...</span>
+              </div>
+            </div>
+          ) : (
+            <>
+              <AccessCodeCard
+                accessCode={currentCode}
+                expiresAt={expiresAt}
+                onGenerateNewCode={handleGenerateNewCode}
+                onRevokeAll={handleRevokeAll}
+              />
 
-          <ActiveAccessList
-            accessList={accessList}
-            onRevokeAccess={handleRevokeAccess}
-          />
+              <ActiveAccessList
+                accessList={accessList}
+                onRevokeAccess={handleRevokeAccess}
+              />
+            </>
+          )}
 
           <div className="flex items-center justify-center gap-2 text-xs text-slate-400 py-2">
             <ShieldCheck className="w-4 h-4 text-[#0F9D94]" />

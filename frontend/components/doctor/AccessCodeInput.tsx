@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { authorizeDoctorAccessCode } from "@/lib/api";
 import { KeyRound, ArrowRight, Sparkles, AlertCircle } from "lucide-react";
 
 export function AccessCodeInput() {
@@ -11,22 +12,21 @@ export function AccessCodeInput() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const handleAccess = (codeToSubmit: string) => {
+  const handleAccess = async (codeToSubmit: string) => {
     const formatted = codeToSubmit.trim().toUpperCase();
     if (!formatted) return;
 
     setError(null);
     setIsLoading(true);
 
-    setTimeout(() => {
+    try {
+      const result = await authorizeDoctorAccessCode(formatted);
+      router.push(`/doctor/patients/${result.patientId}`);
+    } catch (err: any) {
+      setError(err.message || "Invalid or expired patient access code. Please check with your patient.");
+    } finally {
       setIsLoading(false);
-      // Valid mock codes
-      if (formatted === "MED-7K29X" || formatted === "MED-DEMO" || formatted.startsWith("MED-")) {
-        router.push("/doctor/patients/patient-001");
-      } else {
-        setError("Invalid or expired patient access code. Please check with your patient.");
-      }
-    }, 450);
+    }
   };
 
   const handleFillDemoCode = () => {
