@@ -28,17 +28,13 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* Main Hero & Quick Demo Cards */}
-      <main className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col justify-center">
-        <div className="text-center max-w-3xl mx-auto space-y-4 mb-10">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-50 border border-teal-200 text-teal-800 text-xs font-semibold">
-            <Sparkles className="w-3.5 h-3.5 text-teal-600" />
-            <span>24-Hour Hackathon MVP</span>
-          </div>
+      {/* Main Hero & Portals */}
+      <main className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-14 flex flex-col justify-center">
+        <div className="text-center max-w-3xl mx-auto space-y-3.5 mb-10">
           <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
             AI-Powered Medical Record Consolidation &amp; Clinical Briefing
           </h1>
-          <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
+          <p className="text-sm sm:text-base text-slate-600 leading-relaxed max-w-2xl mx-auto">
             Consolidate multi-year fragmented prescriptions, discharge summaries, and lab reports into a unified chronological history, clinical briefing, and evidence-grounded records search.
           </p>
         </div>
@@ -75,7 +71,7 @@ export default function HomePage() {
             <div className="pt-6">
               <Link href="/patient/dashboard">
                 <Button className="w-full justify-between">
-                  <span>Enter as Patient (Rahul Sharma)</span>
+                  <span>Enter as Patient</span>
                   <ArrowRight className="w-4 h-4" />
                 </Button>
               </Link>
@@ -112,7 +108,7 @@ export default function HomePage() {
             <div className="pt-6">
               <Link href="/doctor/dashboard">
                 <Button variant="secondary" className="w-full justify-between">
-                  <span>Enter as Doctor (Dr. Anil Kumar)</span>
+                  <span>Enter as Doctor</span>
                   <ArrowRight className="w-4 h-4" />
                 </Button>
               </Link>
