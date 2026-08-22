@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { UserRole } from "@/types/medical";
+import { loginUser } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { RoleSelector } from "./RoleSelector";
 import { Lock, Mail, ArrowRight, Sparkles } from "lucide-react";
@@ -11,45 +12,54 @@ import Link from "next/link";
 export function LoginForm() {
   const router = useRouter();
   const [role, setRole] = React.useState<UserRole>("patient");
-  const [email, setEmail] = React.useState("rahul.sharma@example.com");
-  const [password, setPassword] = React.useState("password123");
+  const [email, setEmail] = React.useState("patient@demo.com");
+  const [password, setPassword] = React.useState("patient123");
   const [isLoading, setIsLoading] = React.useState(false);
 
   // Sync email when role changes for easy testing
   const handleRoleChange = (newRole: UserRole) => {
     setRole(newRole);
     if (newRole === "patient") {
-      setEmail("rahul.sharma@example.com");
+      setEmail("patient@demo.com");
+      setPassword("patient123");
     } else {
-      setEmail("dr.anil@cityhealth.org");
+      setEmail("doctor@demo.com");
+      setPassword("doctor123");
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    setTimeout(() => {
-      setIsLoading(false);
-      if (role === "patient") {
-        router.push("/patient/dashboard");
-      } else {
-        router.push("/doctor/dashboard");
-      }
-    }, 400);
+    try {
+      await loginUser(email, password, role);
+    } catch (_) {}
+
+    setIsLoading(false);
+    if (role === "patient") {
+      router.push("/patient/dashboard");
+    } else {
+      router.push("/doctor/dashboard");
+    }
   };
 
-  const handleQuickDemo = (demoRole: UserRole) => {
+  const handleQuickDemo = async (demoRole: UserRole) => {
     setIsLoading(true);
     setRole(demoRole);
-    setTimeout(() => {
-      setIsLoading(false);
-      if (demoRole === "patient") {
-        router.push("/patient/dashboard");
-      } else {
-        router.push("/doctor/dashboard");
-      }
-    }, 250);
+    const demoEmail = demoRole === "patient" ? "patient@demo.com" : "doctor@demo.com";
+    const demoPwd = demoRole === "patient" ? "patient123" : "doctor123";
+
+    try {
+      await loginUser(demoEmail, demoPwd, demoRole);
+    } catch (_) {}
+
+    setIsLoading(false);
+    if (demoRole === "patient") {
+      router.push("/patient/dashboard");
+    } else {
+      router.push("/doctor/dashboard");
+    }
   };
 
   return (

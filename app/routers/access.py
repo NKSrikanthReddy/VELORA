@@ -26,10 +26,10 @@ def create_access_code(
     # Note: doctor_id will be linked when doctor claims the access code
     access = DoctorPatientAccess(
         patient_id=patient.id,
-        doctor_id=current_user.id,  # temporary placeholder until claimed by doctor
+        doctor_id=None,  # Pending doctor claim
         access_code=code_str,
         status="active",
-        granted_at=datetime.utcnow(),
+        granted_at=None,
         expires_at=expires_at
     )
     db.add(access)

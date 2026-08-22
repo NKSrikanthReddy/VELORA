@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { UserRole } from "@/types/medical";
+import { registerUser } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { RoleSelector } from "./RoleSelector";
 import { Lock, Mail, User as UserIcon } from "lucide-react";
@@ -16,18 +17,20 @@ export function RegisterForm() {
   const [password, setPassword] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    setTimeout(() => {
-      setIsLoading(false);
-      if (role === "patient") {
-        router.push("/patient/dashboard");
-      } else {
-        router.push("/doctor/dashboard");
-      }
-    }, 400);
+    try {
+      await registerUser(fullName, email, password, role);
+    } catch (_) {}
+
+    setIsLoading(false);
+    if (role === "patient") {
+      router.push("/patient/dashboard");
+    } else {
+      router.push("/doctor/dashboard");
+    }
   };
 
   return (

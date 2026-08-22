@@ -10,7 +10,7 @@ class DoctorPatientAccessResponse(BaseModel):
 
     id: str
     patient_id: str
-    doctor_id: str
+    doctor_id: Optional[str] = None
     access_code: str
     status: str
     granted_at: Optional[datetime] = None

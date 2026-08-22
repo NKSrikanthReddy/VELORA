@@ -20,12 +20,20 @@ from app.routers import (
     chat,
 )
 
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    yield
+
 app = FastAPI(
     title="Velora Medical Record Consolidation & Briefing API",
     description="Patient-controlled medical record consolidation and clinical briefing platform.",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # CORS configuration
@@ -44,11 +52,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Create database tables automatically on startup
-@app.on_event("startup")
-def startup_event():
-    Base.metadata.create_all(bind=engine)
 
 @app.get("/health", tags=["Health"])
 def health_check(db: Session = Depends(get_db)):

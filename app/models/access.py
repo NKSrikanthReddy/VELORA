@@ -9,7 +9,7 @@ class DoctorPatientAccess(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     patient_id = Column(String, ForeignKey("patients.id", ondelete="CASCADE"), nullable=False, index=True)
-    doctor_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    doctor_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     access_code = Column(String, nullable=False, index=True)
     status = Column(String, nullable=False, default="active")  # active, expired, revoked
     granted_at = Column(DateTime, default=datetime.utcnow, nullable=True)
