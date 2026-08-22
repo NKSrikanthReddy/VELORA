@@ -117,13 +117,17 @@ export function DoctorSidebar() {
             Demo
           </span>
         </Link>
-        <Link
-          href="/login"
-          className="flex items-center gap-2 text-xs text-rose-400 hover:text-rose-300 px-2.5 py-1.5 rounded-lg hover:bg-rose-950/20 transition-colors"
+        <button
+          onClick={() => {
+            const { clearAuthSession } = require("@/lib/api");
+            clearAuthSession();
+            window.location.href = "/login";
+          }}
+          className="w-full flex items-center gap-2 text-xs text-rose-400 hover:text-rose-300 px-2.5 py-1.5 rounded-lg hover:bg-rose-950/20 transition-colors"
         >
           <LogOut className="w-3.5 h-3.5" />
           <span>Sign Out</span>
-        </Link>
+        </button>
       </div>
     </div>
   );

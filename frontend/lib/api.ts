@@ -8,9 +8,6 @@ import {
   DoctorAccess,
   ChatMessage,
   Evidence,
-  Diagnosis,
-  Medication,
-  LabResult,
 } from "@/types/medical";
 import {
   mockUsers,
@@ -33,7 +30,11 @@ const USER_KEY = "velora_auth_user";
 // -------------------------------------------------------------
 export function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem(TOKEN_KEY) || localStorage.getItem("token");
+  const token = localStorage.getItem(TOKEN_KEY) || localStorage.getItem("token");
+  if (!token || token === "null" || token === "undefined" || token.trim() === "") {
+    return null;
+  }
+  return token;
 }
 
 export function setAuthSession(token: string, user: User) {
@@ -109,7 +110,7 @@ export async function apiRequest<T>(
       // JSON parse fallback
     }
 
-    if (res.status === 401) {
+    if (res.status === 401 && endpoint !== "/api/auth/login") {
       clearAuthSession();
     }
 
@@ -228,7 +229,8 @@ export async function getCurrentUser(): Promise<User> {
       role: backendUser.role,
     };
   } catch (e) {
-    return getStoredUser() || mockUsers.patient;
+    if (USE_MOCK) return getStoredUser() || mockUsers.patient;
+    throw e;
   }
 }
 
@@ -263,7 +265,8 @@ export async function getMyPatientProfile(): Promise<Patient> {
       lastUpdated: profile.updated_at || profile.created_at,
     };
   } catch (err) {
-    return mockPatient;
+    if (USE_MOCK) return mockPatient;
+    throw err;
   }
 }
 
@@ -284,7 +287,8 @@ export async function getPatient(patientId: string): Promise<Patient> {
       lastUpdated: p.updated_at ? p.updated_at.split("T")[0] : new Date().toISOString().split("T")[0],
     };
   } catch (e) {
-    return mockPatient;
+    if (USE_MOCK) return mockPatient;
+    throw e;
   }
 }
 
@@ -320,7 +324,8 @@ export async function getPatientDocuments(
       extractedEntitiesCount: d.processing_status === "completed" ? 6 : undefined,
     }));
   } catch (e) {
-    return mockDocuments;
+    if (USE_MOCK) return mockDocuments;
+    throw e;
   }
 }
 
@@ -363,16 +368,19 @@ export async function uploadPatientDocument(
       extractedEntitiesCount: 6,
     };
   } catch (e) {
-    return {
-      id: `doc-${Date.now()}`,
-      name: file.name,
-      type: file.type || "Medical Document",
-      uploadDate: new Date().toISOString().split("T")[0],
-      status: "completed",
-      pageCount: 1,
-      fileSize: `${Math.round(file.size / 1024)} KB`,
-      extractedEntitiesCount: 6,
-    };
+    if (USE_MOCK) {
+      return {
+        id: `doc-${Date.now()}`,
+        name: file.name,
+        type: file.type || "Medical Document",
+        uploadDate: new Date().toISOString().split("T")[0],
+        status: "completed",
+        pageCount: 1,
+        fileSize: `${Math.round(file.size / 1024)} KB`,
+        extractedEntitiesCount: 6,
+      };
+    }
+    throw e;
   }
 }
 
@@ -387,7 +395,8 @@ export async function processDocument(
       }
     );
   } catch (e) {
-    return { status: "completed", message: "Document processed" };
+    if (USE_MOCK) return { status: "completed", message: "Document processed" };
+    throw e;
   }
 }
 
@@ -422,7 +431,8 @@ export async function getPatientAccessCodes(
       specialty: "Internal Medicine",
     }));
   } catch (e) {
-    return mockDoctorAccess;
+    if (USE_MOCK) return mockDoctorAccess;
+    throw e;
   }
 }
 
@@ -451,15 +461,18 @@ export async function generateDoctorAccessCode(
       active: rawAccess.status === "active",
     };
   } catch (e) {
-    const newCode = `MED-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
-    return {
-      id: `acc-${Date.now()}`,
-      doctorName: "Pending Doctor Verification",
-      accessCode: newCode,
-      grantedAt: new Date().toISOString().split("T")[0],
-      expiresAt: "2026-09-30",
-      active: true,
-    };
+    if (USE_MOCK) {
+      const newCode = `MED-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+      return {
+        id: `acc-${Date.now()}`,
+        doctorName: "Pending Doctor Verification",
+        accessCode: newCode,
+        grantedAt: new Date().toISOString().split("T")[0],
+        expiresAt: "2026-09-30",
+        active: true,
+      };
+    }
+    throw e;
   }
 }
 
@@ -473,7 +486,8 @@ export async function revokeDoctorAccess(
     });
     return { success: true };
   } catch (e) {
-    return { success: true };
+    if (USE_MOCK) return { success: true };
+    throw e;
   }
 }
 
@@ -496,7 +510,8 @@ export async function authorizeDoctorAccessCode(
     });
     return { patientId: claim.patient_id };
   } catch (e) {
-    return { patientId: mockPatient.id };
+    if (USE_MOCK) return { patientId: mockPatient.id };
+    throw e;
   }
 }
 
@@ -526,7 +541,8 @@ export async function getDoctorPatients(): Promise<Patient[]> {
       lastUpdated: p.updated_at || p.created_at,
     }));
   } catch (e) {
-    return [mockPatient];
+    if (USE_MOCK) return [mockPatient];
+    throw e;
   }
 }
 
@@ -545,11 +561,14 @@ export async function getDoctorPatientDetails(
     ]);
     return { patient, briefing, timeline };
   } catch (e) {
-    return {
-      patient: mockPatient,
-      briefing: mockBriefing,
-      timeline: mockTimelineEvents,
-    };
+    if (USE_MOCK) {
+      return {
+        patient: mockPatient,
+        briefing: mockBriefing,
+        timeline: mockTimelineEvents,
+      };
+    }
+    throw e;
   }
 }
 
@@ -583,7 +602,8 @@ export async function getPatientTimeline(
         : [],
     }));
   } catch (e) {
-    return mockTimelineEvents;
+    if (USE_MOCK) return mockTimelineEvents;
+    throw e;
   }
 }
 
@@ -631,7 +651,8 @@ export async function getPatientSummary(
       uncertainInformation: s.uncertain_information || [],
     };
   } catch (e) {
-    return mockBriefing;
+    if (USE_MOCK) return mockBriefing;
+    throw e;
   }
 }
 
@@ -649,8 +670,11 @@ export async function getEventEvidence(eventId: string): Promise<Evidence[]> {
       },
     ];
   } catch (e) {
-    const evt = mockTimelineEvents.find((e) => e.id === eventId);
-    return evt?.evidence || [];
+    if (USE_MOCK) {
+      const evt = mockTimelineEvents.find((e) => e.id === eventId);
+      return evt?.evidence || [];
+    }
+    throw e;
   }
 }
 
@@ -689,37 +713,29 @@ export async function sendChatMessage(
       })),
     };
   } catch (e) {
-    const lower = query.toLowerCase();
-    const matched = mockChatAnswers.find((ans) =>
-      ans.matchQueries.some((kw) => lower.includes(kw))
-    );
+    if (USE_MOCK) {
+      const lower = query.toLowerCase();
+      const matched = mockChatAnswers.find((ans) =>
+        ans.matchQueries.some((kw) => lower.includes(kw))
+      );
 
-    if (matched) {
-      return {
-        id: `chat-${Date.now()}`,
-        role: "assistant",
-        content: matched.response,
-        createdAt: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        evidence: matched.evidence,
-        warning: matched.warning,
-        isConflict: matched.isConflict,
-        isOutOfScope: matched.isOutOfScope,
-      };
+      if (matched) {
+        return {
+          id: `chat-${Date.now()}`,
+          role: "assistant",
+          content: matched.response,
+          createdAt: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          evidence: matched.evidence,
+          warning: matched.warning,
+          isConflict: matched.isConflict,
+          isOutOfScope: matched.isOutOfScope,
+        };
+      }
     }
-
-    return {
-      id: `chat-${Date.now()}`,
-      role: "assistant",
-      content:
-        "No relevant medical records or evidence found in this patient's history for the specified query.",
-      createdAt: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    };
+    throw e;
   }
 }
 
@@ -731,7 +747,8 @@ export async function getOrCreateChatSession(
       method: "POST",
     });
   } catch (e) {
-    return { id: `session-${patientId}` };
+    if (USE_MOCK) return { id: `session-${patientId}` };
+    throw e;
   }
 }
 
