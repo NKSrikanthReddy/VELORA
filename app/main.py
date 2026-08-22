@@ -25,6 +25,52 @@ from app.routers import (
 async def lifespan(app: FastAPI):
     # Create database tables automatically on startup
     Base.metadata.create_all(bind=engine)
+    
+    # Auto-seed default demo users if they don't exist
+    from sqlalchemy.orm import sessionmaker
+    from app.models.user import User, UserRole
+    from app.models.patient import Patient
+    from app.utils.security import get_password_hash
+    
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    db = SessionLocal()
+    try:
+        demo_patient = db.query(User).filter(User.email == "patient@demo.com").first()
+        if not demo_patient:
+            demo_patient = User(
+                name="Rahul Sharma",
+                email="patient@demo.com",
+                hashed_password=get_password_hash("password123"),
+                role=UserRole.PATIENT
+            )
+            db.add(demo_patient)
+            db.commit()
+            db.refresh(demo_patient)
+            
+            patient_profile = Patient(
+                user_id=demo_patient.id,
+                name=demo_patient.name,
+                gender="Male",
+                date_of_birth="1984-05-14"
+            )
+            db.add(patient_profile)
+            db.commit()
+            
+        demo_doctor = db.query(User).filter(User.email == "doctor@demo.com").first()
+        if not demo_doctor:
+            demo_doctor = User(
+                name="Dr. Anil Kumar",
+                email="doctor@demo.com",
+                hashed_password=get_password_hash("password123"),
+                role=UserRole.DOCTOR
+            )
+            db.add(demo_doctor)
+            db.commit()
+    except Exception as e:
+        print(f"[Seed] Demo user initialization: {e}")
+    finally:
+        db.close()
+
     yield
 
 app = FastAPI(
