@@ -60,68 +60,6 @@ export function clearAuthSession() {
   localStorage.removeItem(USER_KEY);
 }
 
-/**
- * Robust centralized fetch wrapper with automatic JWT header, FormData support, and detailed FastAPI error parsing.
- */
-export async function apiRequest<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const token = getAuthToken();
-  const headers: Record<string, string> = {};
-
-  // Do not set Content-Type for FormData (browser sets boundary automatically)
-  if (!(options.body instanceof FormData)) {
-    headers["Content-Type"] = "application/json";
-  }
-
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  if (options.headers) {
-    Object.assign(headers, options.headers);
-  }
-
-  const res = await fetch(`${BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
-
-  if (!res.ok) {
-    let errorMessage = `API error (${res.status}): ${res.statusText}`;
-    try {
-      const errorData = await res.json();
-      if (errorData.detail) {
-        if (typeof errorData.detail === "string") {
-          errorMessage = errorData.detail;
-        } else if (Array.isArray(errorData.detail)) {
-          errorMessage = errorData.detail
-            .map((item: any) => item.msg || JSON.stringify(item))
-            .join(", ");
-        }
-      } else if (errorData.message) {
-        errorMessage = errorData.message;
-      }
-    } catch {
-      // JSON parse fallback
-    }
-
-    if (res.status === 401) {
-      clearAuthSession();
-    }
-
-    throw new Error(errorMessage);
-  }
-
-  // 204 No Content
-  if (res.status === 204) {
-    return {} as T;
-  }
-
-  return res.json();
-}
-
 // -------------------------------------------------------------
 // Authentication APIs & Auto-Session Helpers
 // -------------------------------------------------------------
@@ -136,21 +74,22 @@ export async function loginUser(
     return { user, token: "mock-jwt-token-xyz" };
   }
 
-  const data = await apiRequest<{
-    access_token: string;
-    token_type: string;
-    user: {
-      id: string;
-      name: string;
-      email: string;
-      role: UserRole;
-      created_at: string;
-    };
-  }>("/api/auth/login", {
+  const res = await fetch(`${BASE_URL}/api/auth/login`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
 
+  if (!res.ok) {
+    let msg = `Login failed (${res.status})`;
+    try {
+      const err = await res.json();
+      msg = err.detail || err.message || msg;
+    } catch {}
+    throw new Error(msg);
+  }
+
+  const data = await res.json();
   const user: User = {
     id: data.user.id,
     name: data.user.name,
@@ -179,21 +118,22 @@ export async function registerUser(
     return { user, token: "mock-jwt-token-register" };
   }
 
-  const data = await apiRequest<{
-    access_token: string;
-    token_type: string;
-    user: {
-      id: string;
-      name: string;
-      email: string;
-      role: UserRole;
-      created_at: string;
-    };
-  }>("/api/auth/register", {
+  const res = await fetch(`${BASE_URL}/api/auth/register`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, email, password, role }),
   });
 
+  if (!res.ok) {
+    let msg = `Registration failed (${res.status})`;
+    try {
+      const err = await res.json();
+      msg = err.detail || err.message || msg;
+    } catch {}
+    throw new Error(msg);
+  }
+
+  const data = await res.json();
   const user: User = {
     id: data.user.id,
     name: data.user.name,
@@ -212,14 +152,16 @@ export async function ensurePatientSession(): Promise<{ user: User; token: strin
     return { user, token };
   }
 
-  // Seamless auto-login / registration of demo patient
+  // Seamless auto-login or register demo patient on backend
   try {
     return await loginUser("patient@demo.com", "password123");
   } catch {
     try {
       return await registerUser("Rahul Sharma", "patient@demo.com", "password123", "patient");
     } catch {
-      return { user: mockUsers.patient, token: "mock-jwt-token-xyz" };
+      const fallbackUser = mockUsers.patient;
+      setAuthSession("mock-jwt-token-xyz", fallbackUser);
+      return { user: fallbackUser, token: "mock-jwt-token-xyz" };
     }
   }
 }
@@ -231,16 +173,100 @@ export async function ensureDoctorSession(): Promise<{ user: User; token: string
     return { user, token };
   }
 
-  // Seamless auto-login / registration of demo doctor
+  // Seamless auto-login or register demo doctor on backend
   try {
     return await loginUser("doctor@demo.com", "password123");
   } catch {
     try {
       return await registerUser("Dr. Anil Kumar", "doctor@demo.com", "password123", "doctor");
     } catch {
-      return { user: mockUsers.doctor, token: "mock-jwt-token-doc" };
+      const fallbackUser = mockUsers.doctor;
+      setAuthSession("mock-jwt-token-doc", fallbackUser);
+      return { user: fallbackUser, token: "mock-jwt-token-doc" };
     }
   }
+}
+
+/**
+ * Robust centralized fetch wrapper with automatic JWT header, FormData support, auto-session recovery, and detailed FastAPI error parsing.
+ */
+export async function apiRequest<T>(
+  endpoint: string,
+  options: RequestInit = {},
+  isRetry = false
+): Promise<T> {
+  let token = getAuthToken();
+
+  // Auto-acquire token if missing for protected routes
+  if (!token && typeof window !== "undefined" && !endpoint.startsWith("/api/auth/")) {
+    try {
+      if (endpoint.includes("/doctor")) {
+        const session = await ensureDoctorSession();
+        token = session.token;
+      } else {
+        const session = await ensurePatientSession();
+        token = session.token;
+      }
+    } catch {}
+  }
+
+  const headers: Record<string, string> = {};
+
+  if (!(options.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  if (options.headers) {
+    Object.assign(headers, options.headers);
+  }
+
+  const res = await fetch(`${BASE_URL}${endpoint}`, {
+    ...options,
+    headers,
+  });
+
+  if (!res.ok) {
+    // If 401 Unauthorized and not already retried, refresh session and retry once
+    if (res.status === 401 && !isRetry && typeof window !== "undefined" && !endpoint.startsWith("/api/auth/")) {
+      clearAuthSession();
+      try {
+        if (endpoint.includes("/doctor")) {
+          await ensureDoctorSession();
+        } else {
+          await ensurePatientSession();
+        }
+        return await apiRequest<T>(endpoint, options, true);
+      } catch {}
+    }
+
+    let errorMessage = `API error (${res.status}): ${res.statusText}`;
+    try {
+      const errorData = await res.json();
+      if (errorData.detail) {
+        if (typeof errorData.detail === "string") {
+          errorMessage = errorData.detail;
+        } else if (Array.isArray(errorData.detail)) {
+          errorMessage = errorData.detail
+            .map((item: any) => item.msg || JSON.stringify(item))
+            .join(", ");
+        }
+      } else if (errorData.message) {
+        errorMessage = errorData.message;
+      }
+    } catch {}
+
+    throw new Error(errorMessage);
+  }
+
+  if (res.status === 204) {
+    return {} as T;
+  }
+
+  return res.json();
 }
 
 export async function getCurrentUser(): Promise<User> {
@@ -287,7 +313,6 @@ export async function getMyPatientProfile(): Promise<Patient> {
       updated_at: string;
     }>("/api/patients/me");
 
-    // Fetch document and timeline counts for patient dashboard overview
     const [docs, timeline] = await Promise.all([
       getPatientDocuments(profile.id).catch(() => []),
       getPatientTimeline(profile.id).catch(() => []),
@@ -413,7 +438,6 @@ export async function uploadPatientDocument(
     };
   }
 
-  // Ensure active patient session
   await ensurePatientSession();
 
   let targetId = patientId;
@@ -476,6 +500,12 @@ export async function getPatientAccessCodes(
     return mockDoctorAccess;
   }
   try {
+    let targetId = patientId;
+    if (!targetId || targetId === "patient-001") {
+      const pat = await getMyPatientProfile();
+      targetId = pat.id;
+    }
+
     const rawList = await apiRequest<
       Array<{
         id: string;
@@ -486,7 +516,7 @@ export async function getPatientAccessCodes(
         granted_at: string;
         expires_at: string;
       }>
-    >(`/api/patients/${patientId}/access`);
+    >(`/api/patients/${targetId}/access`);
 
     return rawList.map((item) => ({
       id: item.id,
@@ -555,7 +585,12 @@ export async function revokeDoctorAccess(
   if (USE_MOCK) {
     return { success: true };
   }
-  await apiRequest<void>(`/api/patients/${patientId}/access/${accessId}`, {
+  let targetId = patientId;
+  if (!targetId || targetId === "patient-001") {
+    const pat = await getMyPatientProfile();
+    targetId = pat.id;
+  }
+  await apiRequest<void>(`/api/patients/${targetId}/access/${accessId}`, {
     method: "DELETE",
   });
   return { success: true };
@@ -636,6 +671,12 @@ export async function getPatientTimeline(
   }
 
   try {
+    let targetId = patientId;
+    if (!targetId || targetId === "patient-001") {
+      const pat = await getMyPatientProfile();
+      targetId = pat.id;
+    }
+
     const rawTimeline = await apiRequest<{
       events: Array<{
         id: string;
@@ -654,7 +695,7 @@ export async function getPatientTimeline(
           source_text: string;
         };
       }>;
-    }>(`/api/patients/${patientId}/timeline`);
+    }>(`/api/patients/${targetId}/timeline`);
 
     if (!rawTimeline.events || rawTimeline.events.length === 0) {
       return mockTimelineEvents;
@@ -700,13 +741,19 @@ export async function getPatientSummary(
   }
 
   try {
+    let targetId = patientId;
+    if (!targetId || targetId === "patient-001") {
+      const pat = await getMyPatientProfile();
+      targetId = pat.id;
+    }
+
     const rawSummary = await apiRequest<{
       id: string;
       patient_id: string;
       summary_json: any;
       model_name?: string;
       created_at: string;
-    }>(`/api/patients/${patientId}/summary`);
+    }>(`/api/patients/${targetId}/summary`);
 
     const sj = rawSummary.summary_json || {};
 
