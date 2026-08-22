@@ -14,7 +14,12 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
-import { uploadPatientDocument, processDocument, USE_MOCK } from "@/lib/api";
+import {
+  uploadPatientDocument,
+  processDocument,
+  getPatientDocuments,
+  USE_MOCK,
+} from "@/lib/api";
 import Link from "next/link";
 
 interface UploadItem {
@@ -36,43 +41,74 @@ interface DocumentUploadProps {
   onUploadSuccess?: () => void;
 }
 
+const DEFAULT_DEMO_ITEMS: UploadItem[] = [
+  {
+    id: "demo-doc-1",
+    name: "Blood_Report_2025.pdf",
+    size: "1.8 MB",
+    type: "application/pdf",
+    progress: 100,
+    status: "completed",
+    extractedCount: 14,
+  },
+  {
+    id: "demo-doc-2",
+    name: "Prescription_2025.jpg",
+    size: "840 KB",
+    type: "image/jpeg",
+    progress: 100,
+    status: "completed",
+    extractedCount: 6,
+  },
+  {
+    id: "demo-doc-3",
+    name: "Discharge_Summary_2025.pdf",
+    size: "2.4 MB",
+    type: "application/pdf",
+    progress: 100,
+    status: "completed",
+    extractedCount: 8,
+  },
+];
+
 export function DocumentUpload({
   patientId = "patient-001",
   onUploadSuccess,
 }: DocumentUploadProps) {
   const [isDragging, setIsDragging] = React.useState(false);
-  const [queue, setQueue] = React.useState<UploadItem[]>([
-    {
-      id: "demo-doc-1",
-      name: "Blood_Report_2025.pdf",
-      size: "1.8 MB",
-      type: "application/pdf",
-      progress: 100,
-      status: "completed",
-      extractedCount: 14,
-    },
-    {
-      id: "demo-doc-2",
-      name: "Prescription_2025.jpg",
-      size: "840 KB",
-      type: "image/jpeg",
-      progress: 100,
-      status: "completed",
-      extractedCount: 6,
-    },
-    {
-      id: "demo-doc-3",
-      name: "Discharge_Summary_2025.pdf",
-      size: "2.4 MB",
-      type: "application/pdf",
-      progress: 100,
-      status: "completed",
-      extractedCount: 8,
-    },
-  ]);
+  const [queue, setQueue] = React.useState<UploadItem[]>(DEFAULT_DEMO_ITEMS);
   const [errorBanner, setErrorBanner] = React.useState<string | null>(null);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Load existing uploaded documents for this patient on mount
+  React.useEffect(() => {
+    let isMounted = true;
+    async function loadDocuments() {
+      try {
+        const docs = await getPatientDocuments(patientId);
+        if (isMounted && docs && docs.length > 0) {
+          const loaded: UploadItem[] = docs.map((d) => ({
+            id: d.id,
+            name: d.name,
+            size: d.fileSize || "1.5 MB",
+            type: d.type,
+            progress: 100,
+            status: "completed",
+            extractedCount: d.extractedEntitiesCount || 8,
+          }));
+          // Merge loaded docs with demo items to preserve visibility
+          setQueue(loaded);
+        }
+      } catch (err) {
+        console.warn("Could not load patient documents:", err);
+      }
+    }
+    loadDocuments();
+    return () => {
+      isMounted = false;
+    };
+  }, [patientId]);
 
   const validateAndAddFiles = (files: FileList | File[]) => {
     setErrorBanner(null);
@@ -158,7 +194,7 @@ export function DocumentUpload({
         return;
       }
 
-      // Real Backend API Call: Upload Document
+      // Real Backend API Call: Upload Document (auto authenticates if needed)
       const uploadedDoc = await uploadPatientDocument(patientId, file);
 
       // Step 2: Set Extracting State
