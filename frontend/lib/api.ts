@@ -722,3 +722,23 @@ export async function sendChatMessage(
     };
   }
 }
+
+export async function getOrCreateChatSession(
+  patientId: string
+): Promise<{ id: string }> {
+  try {
+    return await apiRequest<{ id: string }>(`/api/doctor/patients/${patientId}/chat`, {
+      method: "POST",
+    });
+  } catch (e) {
+    return { id: `session-${patientId}` };
+  }
+}
+
+export async function askPatientRecords(
+  patientId: string,
+  question: string,
+  sessionId?: string
+): Promise<ChatMessage> {
+  return sendChatMessage(patientId, question);
+}
