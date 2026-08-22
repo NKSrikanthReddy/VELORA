@@ -56,6 +56,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/", tags=["General"])
+def root():
+    return {
+        "name": "Velora Medical Record Consolidation API",
+        "status": "online",
+        "docs": "/docs",
+        "health": "/health"
+    }
+
 @app.get("/health", tags=["Health"])
 def health_check(db: Session = Depends(get_db)):
     db_status = "connected"
